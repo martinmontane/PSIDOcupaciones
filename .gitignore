@@ -1,0 +1,9 @@
+# Ignore everything
+*
+
+!.gitignore
+!GetPanelPSID.R
+!makeids.R
+!buildPanelCustom.R
+
+!*/
