@@ -5,5 +5,7 @@
 !GetPanelPSID.R
 !makeids.R
 !buildPanelCustom.R
+!replica_km.R
 
 !*/
+.Rproj.user

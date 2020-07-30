@@ -43,7 +43,7 @@ MainJob_WeekHrs_Spouse_1968_2001 <- getNamesPSID("V245",tablaDatos,years=PSIDFul
 
 HourlyEarnings_MainJob_Head_1970_2015 <- getNamesPSID("V1297",tablaDatos,years=PSIDFullYears) # Solo si es pago por hora
 HourlyEarnings_MainJob_Spouse_1979_2015 <- getNamesPSID("V6616",tablaDatos,years=PSIDFullYears) # Solo si es pago por hora
-HourlyEarnings_AllJobs_Head_1968_2015 <-getNamesPSID("V337",tablaDatos,years=PSIDFullYears) # Solo si es pago por hora
+  HourlyEarnings_AllJobs_Head_1968_2015 <-getNamesPSID("V337",tablaDatos,years=PSIDFullYears) # Solo si es pago por hora
 HourlyEarnings_AllJobs_Spouse_1968_2015 <-getNamesPSID("V338",tablaDatos,years=PSIDFullYears) # Solo si es pago por hora
 
 
@@ -121,9 +121,16 @@ Years_Individual_1968_2015 <- getNamesPSID("ER30004",tablaDatos,years=PSIDFullYe
 Sex_Individual_1968_2015 <- rep("ER32000",40)
 EmployerYears_Head_1968_2015 <- c(getNamesPSID("V4480",tablaDatos,years=PSIDFullYears[PSIDFullYears<=1993]),
                                   getNamesPSID("ER2098",tablaDatos,years=PSIDFullYears[PSIDFullYears>1993]))
-
+race <- getNamesPSID("V181",tablaDatos,years=PSIDFullYears)
 Married_Pairs_Indicator_1968_2015 <- c(getNamesPSID("ER30005",tablaDatos,years=PSIDFullYears))
 Region_1968_2015 <- c(getNamesPSID("ER6997E",tablaDatos,years=PSIDFullYears))
+
+# Work Experience
+# Available from 1974 onwards for heads and spouses
+WorkExpSince18_Head <- getNamesPSID('V3620',tablaDatos,years=PSIDFullYears)
+WorkExpSince18_Spouse <- getNamesPSID('V3610',tablaDatos,year=PSIDFullYears)
+WorkExpSince18FullTime_Head <- getNamesPSID('V3621',tablaDatos,years=PSIDFullYears)
+WorkExpSince18FullTime_Spouse <- getNamesPSID('V3611',tablaDatos,year=PSIDFullYears)
 
 # Hay que crear un data frame que tenga los vectores de las variables. Hay que ponerle
 # un nombre a cada uno de los vectores porque va a ser el nombre de la columna
@@ -192,7 +199,12 @@ dfVariablesFam <- data.frame(year=PSIDFullYears,
                              EmployerYears_Head_1968_2015=EmployerYears_Head_1968_2015,
                              Region_1968_2015=Region_1968_2015,
                              YearsWithEmployer_Head_1968_1993=YearsWithEmployer_Head_1968_1993,
-                             YearsWithEmployer_Head_1994_2015=YearsWithEmployer_Head_1994_2015)
+                             YearsWithEmployer_Head_1994_2015=YearsWithEmployer_Head_1994_2015,
+                             race_1968_2015=race,
+                             WorkExpSince18_Head=WorkExpSince18_Head,
+                             WorkExpSince18_Spouse=WorkExpSince18_Spouse,
+                             WorkExpSince18FullTime_Head=WorkExpSince18FullTime_Head,
+                             WorkExpSince18FullTime_Spouse=WorkExpSince18FullTime_Spouse)
 dfVariablesInd <- data.frame(year=PSIDFullYears,
                              Grades_Individual_1968_2015=Grades_Individual_1968_2015,
                              Years_Individual_1968_2015=Years_Individual_1968_2015,
@@ -203,18 +215,19 @@ dfVariablesInd <- data.frame(year=PSIDFullYears,
 # a nivel de familia que queremos pasarle y la dirección donde están los .rda
 # Acá asumí que estaban pegados en la carpeta principal de tu proyecto,
 # pero se puede cambiar.
-panel1968_2015 <- build.panel(datadir = paste0(getwd(),'/','PSIDRDa'),
-                              fam.vars=dfVariablesFam,ind.vars = dfVariablesInd,
+panel1968_2015 <- build.panel(datadir = paste0(getwd(),'/','PSIDRDa/'),
+                              fam.vars=dfVariablesFam,
+                              ind.vars = dfVariablesInd,
                               design = 'all')
 # Filtro heads 
-panel1968_2015 <- panel1968_2015 %>% filter(relation.head %in% c(1,10))
+# panel1968_2015 <- panel1968_2015 %>% filter(relation.head %in% c(1,10))
 
-#Alguna estadística descriptiva
-info <- data.table(panel1968_2015) %>% 
-  .[,list(conteo=.N),by=c('pid')] %>%
-  .[,list(apariciones=.N), by=c('conteo')] 
+# #Alguna estadística descriptiva
+# info <- data.table(panel1968_2015) %>% 
+#   .[,list(conteo=.N),by=c('pid')] %>%
+#   .[,list(apariciones=.N), by=c('conteo')] 
 
-ggplot(info) + geom_bar(aes(x=conteo, y=apariciones),stat = 'identity')
+# ggplot(info) + geom_bar(aes(x=conteo, y=apariciones),stat = 'identity')
 # Reducimos las variables que duplican (hombre/mujer).
 # CHEQUEAR si esto está bien (es un ifelse según la relation.head)
 panel1968_2015<- panel1968_2015 %>%
@@ -252,94 +265,92 @@ panel1968_2015<- panel1968_2015 %>%
          EmployerYears_1968_2015=EmployerYears_Head_1968_2015,
          Married_Pairs_Indicator_1968_2015=Married_Pairs_Indicator_1968_2015,
          Region_1968_2015=Region_1968_2015,
-         YearsWithEmployer_1968_2015=YearsWithEmployer_Head_1968_1993
+         YearsWithEmployer_1968_2015=YearsWithEmployer_Head_1968_1993,
+         race_1968_2015=race_1968_2015,
+         WorkExpSince18 = ifelse(relation.head %in% c(2,20,22), WorkExpSince18_Spouse, WorkExpSince18_Head),
+         WorkExpSince18FullTime = ifelse(relation.head %in% c(2,20,22), WorkExpSince18FullTime_Spouse, WorkExpSince18FullTime_Head)
   )
 
-# Creo colnames_modificado por un problema que tenía con la variable Region_1968_2015 (corroboré bien que no afecte a nada fuera de esto)
-#colnames_modificado = colnames(panel1968_2015)
-#colnames_modificado = colnames_modificado[-which(colnames_modificado == "Region_1968_2015")]
-#colnames_modificado = colnames_modificado[-which(colnames_modificado == "EmployerYears_1968_2015")]
-
-#panel1968_2015 <- panel1968_2015[,!colnames_modificado %in% colnames(dfVariablesFam)[-1]]
-
-# Algunos otros cambios que ya no me acuerdo por qué eran. Hay que comentar antes
-panel1968_2015$PresentMainJob_3dOcc_1968_2015 <- ifelse(panel1968_2015$year %in% c(2003:2017),
-                                                        panel1968_2015$PresentOrLastMain_3dOccupation_2003_15,
-                                                        panel1968_2015$PresentMainJob_3dOcc_1968_2001)
-panel1968_2015$PresentMainJob_3dInd_1968_2015 <- ifelse(panel1968_2015$year %in% c(2003:2017),
-                                                        panel1968_2015$PresentOrLastMain_3dIndustry_2003_15,
-                                                        panel1968_2015$PresentMainJob_3dInd_1968_2001)
-panel1968_2015$EmployerYears_1968_2015 <- ifelse(panel1968_2015$year<=1993 & !panel1968_2015$EmployerYears_1968_2015 %in% c(0,998,999),
-                                                 panel1968_2015$EmployerYears_1968_2015/12,
-                                                 panel1968_2015$EmployerYears_1968_2015)
-panel1968_2015$EmployerYears_1968_2015 <- ifelse(panel1968_2015$EmployerYears_1968_2015 %in% c(0,98,99,998,999),
-                                                 NA,
-                                                 panel1968_2015$EmployerYears_1968_2015)
-panel1968_2015$Married_Pairs_Indicator_1968_2015 <- ifelse(panel1968_2015$Married_Pairs_Indicator_1968_2015 %in% c(1,2,3),1,0)
-
-panel1968_2015$Region_1968_2015 <- ifelse(panel1968_2015$Region_1968_2015 %in% c(0,5,6,9),
-                                          NA,
-                                          panel1968_2015$Region_1968_2015)
+# # Algunos otros cambios que ya no me acuerdo por qué eran. Hay que comentar antes
+# panel1968_2015$PresentMainJob_3dOcc_1968_2015 <- ifelse(panel1968_2015$year %in% c(2003:2017),
+#                                                         panel1968_2015$PresentOrLastMain_3dOccupation_2003_15,
+#                                                         panel1968_2015$PresentMainJob_3dOcc_1968_2001)
+# panel1968_2015$PresentMainJob_3dInd_1968_2015 <- ifelse(panel1968_2015$year %in% c(2003:2017),
+#                                                         panel1968_2015$PresentOrLastMain_3dIndustry_2003_15,
+#                                                         panel1968_2015$PresentMainJob_3dInd_1968_2001)
+# panel1968_2015$EmployerYears_1968_2015 <- ifelse(panel1968_2015$year<=1993 & !panel1968_2015$EmployerYears_1968_2015 %in% c(0,998,999),
+#                                                  panel1968_2015$EmployerYears_1968_2015/12,
+#                                                  panel1968_2015$EmployerYears_1968_2015)
+# panel1968_2015$EmployerYears_1968_2015 <- ifelse(panel1968_2015$EmployerYears_1968_2015 %in% c(0,98,99,998,999),
+#                                                  NA,
+#                                                  panel1968_2015$EmployerYears_1968_2015)
+# panel1968_2015$Married_Pairs_Indicator_1968_2015 <- ifelse(panel1968_2015$Married_Pairs_Indicator_1968_2015 %in% c(1,2,3),1,0)
+# 
+# panel1968_2015$Region_1968_2015 <- ifelse(panel1968_2015$Region_1968_2015 %in% c(0,5,6,9),
+#                                           NA,
+#                                           panel1968_2015$Region_1968_2015)
 # Elimino todo lo que ya no sirve y limpio la memoria
 rm(list=ls()[!ls() %in% c("panel1968_2015","PSIDFullYears")])
 gc()
 
-# Elimino a los que no se les pudo hacer los retrospective files
-panel1968_2015 <- panel1968_2015 %>%
-  filter(!(EmploymentStatus==1 & PresentMainJob_3dOcc_1968_2015==0))
-
-# Levanto los Crosswalk para hacer compatibles los códigos de ocupación
-conversion <- read_excel(path = "Crosswalks.xlsx",sheet = 5)
-conversion1970_2010 <- unique(conversion[,c("1970","OCC2010","OneDigit")])
-conversion1970_2010 <- conversion1970_2010[!is.na(conversion1970_2010$`1970`),]
-conversion2000_2010 <- unique(conversion[,c("2000","OCC2010","OneDigit")])
-conversion2000_2010 <- conversion2000_2010[!is.na(conversion2000_2010$`2000`),]
-conversion2000_2010$OCC2010 <- as.numeric(conversion2000_2010$OCC2010)
-conversion2000_2010$`2000` <- as.numeric(conversion2000_2010$`2000`)
-
-# Convierto al panel a un objeto data.table
-panel1968_2015 <- as.data.table(panel1968_2015)
-
-conversion1970_2010 <- data.table(conversion1970_2010)
-conversion1970_2010$OCC2010 <- as.numeric(conversion1970_2010$OCC2010)
-# Hago un join para el periodo 1968-2001 para pasar del CNO1970 al CNO2010
-panel1968_2015$OneDigit <- character()
-panel1968_2015$PresentMainJob_3dOcc_1968_2015_OCC2010 <- numeric()
-
-panel1968_2015[year>=1968 & year<=2001]<-panel1968_2015[year>=1968 & year<=2001][conversion1970_2010,
-                                                                                 on=c(PresentMainJob_3dOcc_1968_2015="1970"),
-                                                                                 `:=`(OneDigit=i.OneDigit,
-                                                                                      PresentMainJob_3dOcc_1968_2015_OCC2010=OCC2010)]
-
-# Hago un join para el periodo 2003-2015 para pasar del CNO1970 al CNO2010
-panel1968_2015[year>=2003&year<=2015]<-panel1968_2015[year>=2003&year<=2015][data.table(conversion2000_2010),
-                                                                             on=c(PresentMainJob_3dOcc_1968_2015="2000"),
-                                                                             `:=`(PresentMainJob_3dOcc_1968_2015_OCC2010=OCC2010,
-                                                                                  OneDigit=i.OneDigit)] 
-
-conversion <- read_excel(path = "Crosswalks.xlsx",sheet = 4)
-conversion1970_1990 <- unique(conversion[,c("1970","IND1990")])
-conversion1970_1990<- data.table(conversion1970_1990) %>%
-  .[!is.na(`1970`)] %>%
-  .[,`1970`:=as.numeric(`1970`)] %>%
-  .[,IND1990:=as.numeric(IND1990)]
-conversion2000_1990 <- unique(conversion[,c("2000","IND1990")])
-conversion2000_1990<-data.table(conversion2000_1990) %>%
-  .[!is.na(`2000`)] %>%
-  .[,`2000`:=as.numeric(`2000`)] %>%
-  .[!is.na(`2000`)] %>%
-  .[,IND1990:=as.numeric(IND1990)]
-
-panel1968_2015$PresentMainJob_3dInd_1968_2015_IND1990 <- numeric()
-# Hago un join para el periodo 1968-2001 para pasar del IND1970 al IND1990
-panel1968_2015[year>=1968 & year<=2001]<-
-  panel1968_2015[year>=1968 & year<=2001][conversion1970_1990,
-                                          on=c(PresentMainJob_3dInd_1968_2015="1970"),
-                                          PresentMainJob_3dInd_1968_2015_IND1990:=IND1990] 
-# Hago un join para el periodo 2015-2001 para pasar del IND2000 al IND1990
-panel1968_2015[year>=2003&year<=2015]<-
-  panel1968_2015[year>=2003&year<=2015][conversion2000_1990,
-                                        on=c(PresentMainJob_3dInd_1968_2015="2000"),
-                                        PresentMainJob_3dInd_1968_2015_IND1990:=IND1990] 
-# Ordenar datos
-panel1968_2015 <- panel1968_2015[order(pid,rank(year))]
+# # Elimino a los que no se les pudo hacer los retrospective files.
+# # Esto lo identificamos en base a los que estaban trabajando pero NO
+# # tienen información sobre la ocupación en el período 1968-1980
+# panel1968_2015 <- panel1968_2015 %>%
+#   filter(!(EmploymentStatus==1 & PresentMainJob_3dOcc_1968_2015==0 & year >=1968 & year <=1980))
+# 
+# # Levanto los Crosswalk para hacer compatibles los códigos de ocupación
+# conversion <- read_excel(path = "Crosswalks.xlsx",sheet = 5)
+# conversion1970_2010 <- unique(conversion[,c("1970","OCC2010","OneDigit")])
+# conversion1970_2010 <- conversion1970_2010[!is.na(conversion1970_2010$`1970`),]
+# conversion2000_2010 <- unique(conversion[,c("2000","OCC2010","OneDigit")])
+# conversion2000_2010 <- conversion2000_2010[!is.na(conversion2000_2010$`2000`),]
+# conversion2000_2010$OCC2010 <- as.numeric(conversion2000_2010$OCC2010)
+# conversion2000_2010$`2000` <- as.numeric(conversion2000_2010$`2000`)
+# 
+# # Convierto al panel a un objeto data.table
+# panel1968_2015 <- as.data.table(panel1968_2015)
+# 
+# conversion1970_2010 <- data.table(conversion1970_2010)
+# conversion1970_2010$OCC2010 <- as.numeric(conversion1970_2010$OCC2010)
+# # Hago un join para el periodo 1968-2001 para pasar del CNO1970 al CNO2010
+# panel1968_2015$OneDigit <- character()
+# panel1968_2015$PresentMainJob_3dOcc_1968_2015_OCC2010 <- numeric()
+# 
+# panel1968_2015[year>=1968 & year<=2001]<-panel1968_2015[year>=1968 & year<=2001][conversion1970_2010,
+#                                                                                  on=c(PresentMainJob_3dOcc_1968_2015="1970"),
+#                                                                                  `:=`(OneDigit=i.OneDigit,
+#                                                                                       PresentMainJob_3dOcc_1968_2015_OCC2010=OCC2010)]
+# 
+# # Hago un join para el periodo 2003-2015 para pasar del CNO1970 al CNO2010
+# panel1968_2015[year>=2003&year<=2015]<-panel1968_2015[year>=2003&year<=2015][data.table(conversion2000_2010),
+#                                                                              on=c(PresentMainJob_3dOcc_1968_2015="2000"),
+#                                                                              `:=`(PresentMainJob_3dOcc_1968_2015_OCC2010=OCC2010,
+#                                                                                   OneDigit=i.OneDigit)] 
+# 
+# conversion <- read_excel(path = "Crosswalks.xlsx",sheet = 4)
+# conversion1970_1990 <- unique(conversion[,c("1970","IND1990")])
+# conversion1970_1990<- data.table(conversion1970_1990) %>%
+#   .[!is.na(`1970`)] %>%
+#   .[,`1970`:=as.numeric(`1970`)] %>%
+#   .[,IND1990:=as.numeric(IND1990)]
+# conversion2000_1990 <- unique(conversion[,c("2000","IND1990")])
+# conversion2000_1990<-data.table(conversion2000_1990) %>%
+#   .[!is.na(`2000`)] %>%
+#   .[,`2000`:=as.numeric(`2000`)] %>%
+#   .[!is.na(`2000`)] %>%
+#   .[,IND1990:=as.numeric(IND1990)]
+# 
+# panel1968_2015$PresentMainJob_3dInd_1968_2015_IND1990 <- numeric()
+# # Hago un join para el periodo 1968-2001 para pasar del IND1970 al IND1990
+# panel1968_2015[year>=1968 & year<=2001]<-
+#   panel1968_2015[year>=1968 & year<=2001][conversion1970_1990,
+#                                           on=c(PresentMainJob_3dInd_1968_2015="1970"),
+#                                           PresentMainJob_3dInd_1968_2015_IND1990:=IND1990] 
+# # Hago un join para el periodo 2015-2001 para pasar del IND2000 al IND1990
+# panel1968_2015[year>=2003&year<=2015]<-
+#   panel1968_2015[year>=2003&year<=2015][conversion2000_1990,
+#                                         on=c(PresentMainJob_3dInd_1968_2015="2000"),
+#                                         PresentMainJob_3dInd_1968_2015_IND1990:=IND1990] 
+# # Ordenar datos
+# panel1968_2015 <- panel1968_2015[order(pid,rank(year))]
