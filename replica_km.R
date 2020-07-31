@@ -31,7 +31,7 @@ panel_km <- panel_km[,
                      `:=`(government_worker = any(MainJob_Government_Head_1975_2001 %in% 1),
                           independent_worker= any(PresentMain_Modalidad_Head_1968_2001 %in% c(2,3)),
                           wage_less_79_usd_worker =  any(w_real_alljobs_79>0 & w_real_alljobs_79<1),
-                          army_farmer_worker=any(PresentMain_3dOccupation_Head_1968_2001 %in% c(590, 800:824))),
+                          army_farmer_worker=any(PresentMain_3dOccupation_Head_1968_2001 %in% c(580, 590, 800:824))),
                      by=list(pid)]
 
 # Paso 5: eliminar a todas las personas que cumplen las siguientes condiciones
@@ -178,8 +178,7 @@ ggplot(grafico) +
        subtitle='Percentage of man working for a new employer as a share of people working.\nPartition UNC/T/T24 method.')
 # They closely match between 1968 and 1978, as K&M say in their paper. We will
 # assign occupational and industry switches with the uncontrolled version prior to 1980.
-# (Esto, lo de para 1968-80 usar los cambios solos según los Retrospective Files,
-# lo había hecho por alguna razón... podrías chequearlo Alfonso?)
+
 panel_km <- panel_km[,`:=` (IND_CHANGE_EMP=ifelse(year %in% c(1968:1980),IND_CHANGE_UNC,IND_CHANGE_EMP),
                                         OCC_CHANGE_EMP=ifelse(year %in% c(1968:1980),OCC_CHANGE_UNC,OCC_CHANGE_EMP),
                                         IND_CHANGE_EMP24T=ifelse(year %in% c(1968:1980),IND_CHANGE_UNC,IND_CHANGE_EMP24T),
@@ -289,6 +288,7 @@ panel_km <- panel_km[,
                      by='pid']
 # Me quedé por acá en la revisión. Hay que ver cómo le imputan la experiencia en la ocupación, industria
 # y experiencia en general.
+# Corte 800 horas anuales para todas las tenure
 ##############################################################
 
 table(panel_km$minInfoWorkExp)
