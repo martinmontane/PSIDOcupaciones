@@ -309,7 +309,7 @@ gc()
 # conversion2000_2010$`2000` <- as.numeric(conversion2000_2010$`2000`)
 # 
 # # Convierto al panel a un objeto data.table
-# panel1968_2015 <- as.data.table(panel1968_2015)
+panel1968_2015 <- as.data.table(panel1968_2015)
 # 
 # conversion1970_2010 <- data.table(conversion1970_2010)
 # conversion1970_2010$OCC2010 <- as.numeric(conversion1970_2010$OCC2010)
