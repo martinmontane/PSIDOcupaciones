@@ -113,6 +113,20 @@ YearsWithEmployer_Head_1968_1993 <- getNamesPSID("V200",tablaDatos,years=c(1968:
 YearsWithEmployer_Head_1968_1993[2:8]  <-  getNamesPSID("V642",tablaDatos,years=c(1969:1975))                                    
 YearsWithEmployer_Head_1994_2015 <- getNamesPSID("ER2098",tablaDatos,years=c(1968:2017)) 
 
+# Información sobre position. Igual que como aparece en el paper
+# Hasta 1987 se computa en una sola variable la cantidad de meses en la misma
+# posición. Desde 1988 hasta 2001 la situación es un poco más compleja porque
+# hay que hacer el cálculo de meses manualmente
+position_tenure_total_months_1968_2017 <- getNamesPSID("V4488",tablaDatos,years=c(1968:2017))
+position_tenure_start_month_1968_2017 <- getNamesPSID("V15192",tablaDatos,years=c(1968:2017))
+position_tenure_start_year_1968_2017 <- getNamesPSID("V15193",tablaDatos,years=c(1968:2017))
+date_of_interview_1968_2017 <-  getNamesPSID("V99",tablaDatos,years=c(1968:2017))
+#position_equals_employer_tenure_1968_2017 <- getNamesPSID("V15184",tablaDatos,years=c(1968:2017))
+
+
+YearsWithEmployer_Head_1968_1993[2:8]  <-  getNamesPSID("V642",tablaDatos,years=c(1969:1975))                                    
+YearsWithEmployer_Head_1994_2015 <- getNamesPSID("ER2098",tablaDatos,years=c(1968:2017)) 
+
 # Educación y otras variables
 Grades_Head_1968_1990 <- getNamesPSID("V313",tablaDatos,years=PSIDFullYears)
 Grades_Spouse_1968_1990 <- getNamesPSID("V246",tablaDatos,years=PSIDFullYears)
