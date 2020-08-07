@@ -2,6 +2,21 @@
 source("GetPanelPSID.R")
 # Paso 1: Observaciones entre 1968 y 1993
 panel_km <- panel1968_2015[year %in% 1968:1993]
+
+# Generamos la variable de educacion, que la vamos a necesitar más adelante
+panel_km <- panel_km[,
+                     `:=`(edu_1968=Grades_Individual_1968_2015[year %in% 1968],
+                          edu_1975=Grades_Individual_1968_2015[year %in% 1975],
+                          edu_1985=Grades_Individual_1968_2015[year %in% 1985]),
+                     by="pid"]
+  
+panel_km <- panel_km[,education:=ifelse(!is.na(edu_1985) & !edu_1985 %in% 0,edu_1985,
+                                        ifelse(!is.na(edu_1975) & !edu_1975 %in% 0,edu_1975,
+                                               edu_1968))]
+
+panel_km[education %in% 0,
+         education:=NA]
+
 # Paso 2: Hombres, blancos y cabezas de hogar
 panel_km <- panel_km[Sex_Individual_1968_2015==1 & race_1968_2015==1 & relation.head %in% c(1,10)]
 # Paso 3: entre 18 y 64 años
@@ -150,9 +165,14 @@ ggplot(EmpChangeTest) +
   labs(title = 'Share of employer change',
        subtitle='Percentage of man working for a new employer as a share of people working.\nPartition T method.')
 
+# Corregimos algunos casos en los cuales EMP_CHANGE24T es FALSE pero EMP_CHANGE
+# es TRUE
+panel_km$EMP_CHANGE24T <- ifelse(panel_km$EMP_CHANGE %in% TRUE & 
+                                 panel_km$EMP_CHANGE24T %in% FALSE,
+                                 TRUE,
+                                 panel_km$EMP_CHANGE24T)
 table(panel_km$EMP_CHANGE,
       panel_km$EMP_CHANGE24T)
-
 
 # We find changes in occupation and industry based on EMP_CHANGE and EMP_CHANGE24T
 # Only changes in reported activity or occupation
@@ -428,88 +448,79 @@ panel_km[year > 1973,
          EXP_WORK:=cumsum(EXP_WORK),
          by='pid']
 
-#### Pasos faltantes ####
-# Revisar consistencia con algunos pid al azar (yo chequié y tenía sentido,
-# pero hay mucho código y es fácil equivocarse)
-# Falta la construcción de estas variables según el anexo (A.4)
-
-#### Otras variables: salarios reales. Acá se puede usar el deflactor que usé más arriba. No tengo en claro cuál es la variable específica de wages que usan ####
-
-#### Otras variables: educación ####
-
-
-#### Lo que sigue de acá en adelante nos va a servir para pegarle a la regresión con todos los controles. Verlo cuando terminemos las líneas anteriores. También tengo el código para armar los instrumentos, asi que primero enfoquémonos en esto ####
-
 # Controls that might be useful for the regression
 # Regional dummy
 panel_km$Region_1968_2015 <- factor(panel_km$Region_1968_2015)
+# OJ dummy: 1 if the worker is NOT working in the first year with a new employer
+panel_km <- panel_km[, OJ:= ifelse(year == min(year), 0, 1),by=c('pid','EMPLOYER_SPELL')]
+panel_km <- panel_km[, OJ24T:= ifelse(year == min(year), 0, 1),by=c('pid','EMPLOYER_SPELL24T')]
+
+# Acá habría que encontrar los clasificadores de indistrias y ocupaciones
+# para crear dos variables que tengan a un dígito la industria y ocupación
 # Convierto a factor la variable OneDigitOcc para la regresión
-panel1968_2015$OneDigitOcc <- factor(panel1968_2015$Occ1d)
-panel1968_2015$OneDigitInd <- factor(panel1968_2015$Ind1d)
-# OJ dummy: 1 if the worker is not working in the first year with a new employer
-panel1968_2015 <- panel1968_2015[, OJ:= ifelse(year == min(year), 0, 1),by=c('pid','EMPLOYER_SPELL')]
-panel1968_2015 <- panel1968_2015[, OJ24T:= ifelse(year == min(year), 0, 1),by=c('pid','EMPLOYER_SPELL24T')]
-# Convierto a factor la variable year para la regresión
-panel1968_2015$year <- factor(panel1968_2015$year)
-# Data wrangling on income data
-panel1968_2015$HourlyEarnings_AllJobs_1968_2015 <- ifelse(panel1968_2015$HourlyEarnings_AllJobs_1968_2015 %in% 99.99 & panel1968_2015$year==1968,
-                                                          NA,
-                                                          panel1968_2015$HourlyEarnings_AllJobs_1968_2015)
-panel1968_2015$HourlyEarnings_AllJobs_1968_2015 <- ifelse(panel1968_2015$HourlyEarnings_AllJobs_1968_2015 %in% 0.00,
-                                                          NA,
-                                                          panel1968_2015$HourlyEarnings_AllJobs_1968_2015)
-panel1968_2015$HourlyEarnings_AllJobs_1968_2015 <- ifelse(panel1968_2015$HourlyEarnings_AllJobs_1968_2015 %in% c(9999.99,9999.00,9998,9998.00),
-                                                          NA,
-                                                          panel1968_2015$HourlyEarnings_AllJobs_1968_2015)
+# panel_km$OneDigitOcc <- factor(panel_km$Occ1d)
+# panel_km$OneDigitInd <- factor(panel_km$Ind1d)
 
-# Data wrangling with government status
-panel1968_2015$MainJob_Government_1979_2001 <- ifelse(panel1968_2015$year %in% c(1968:1982) & panel1968_2015$MainJob_Government_1979_2001 %in% 5,'FALSE',
-                                                      ifelse(panel1968_2015$year %in% c(1983:2001) & panel1968_2015$MainJob_Government_1979_2001 %in% 4,'FALSE',
-                                                             panel1968_2015$MainJob_Government_1979_2001))
-
-panel1968_2015$PresentOrLastMain_Government_2003_15 <-  ifelse(panel1968_2015$PresentOrLastMain_Government_2003_15 %in% 4,'FALSE',
-                                                               panel1968_2015$PresentOrLastMain_Government_2003_15)
-
-
-panel1968_2015$MainJob_Government <- ifelse(panel1968_2015$year %in% c(1968:2001),
-                                            panel1968_2015$MainJob_Government_1979_2001,
-                                            panel1968_2015$PresentOrLastMain_Government_2003_15)
-panel1968_2015$MainJob_Government <- ifelse(panel1968_2015$MainJob_Government %in% "FALSE",FALSE,TRUE)
-# Nominal to real incomes
-library(zoo)
-cpi <- fread('CPIAUCSL.csv')
-cpi$DATE <- as.integer(year(as.Date(cpi$DATE)))
-cpi <- cpi[,list(ipc=mean(CPIAUCSL)),by='DATE']
-cpi$ipc <- cpi$ipc[73]/cpi$ipc
-panel1968_2015$year <- as.numeric(as.character(panel1968_2015$year))
-panel1968_2015 <- panel1968_2015[cpi,on=c('year'='DATE'),ipc:=i.ipc]
-panel1968_2015 <- panel1968_2015[,
-                                 HourlyEarnings_MainJob_1970_2015:=ifelse(year %in% c(1970:1977) & HourlyEarnings_MainJob_1970_2015 %in% c(0.00,9.99),NA,HourlyEarnings_MainJob_1970_2015)]
-panel1968_2015 <- panel1968_2015[,
-                                 HourlyEarnings_MainJob_1970_2015:=ifelse(year %in% c(1978:1992) & HourlyEarnings_MainJob_1970_2015 %in% c(0.00,99.99),NA,HourlyEarnings_MainJob_1970_2015)]
-panel1968_2015 <- panel1968_2015[,
-                                 HourlyEarnings_MainJob_1970_2015:=ifelse(year %in% c(1993) & HourlyEarnings_MainJob_1970_2015 %in% c(0.00,998.00,999.00),NA,HourlyEarnings_MainJob_1970_2015)]
-panel1968_2015 <- panel1968_2015[,
-                                 HourlyEarnings_MainJob_1970_2015:=ifelse(year %in% c(1994:2017) & !(HourlyEarnings_MainJob_1970_2015 > 0.00 & HourlyEarnings_MainJob_1970_2015 <= 997.00),NA,HourlyEarnings_MainJob_1970_2015)]
-
-panel1968_2015 <- panel1968_2015[,
-                                 LaborEarnings_AllJobs_Head_1968_2015:=ifelse(LaborEarnings_AllJobs_Head_1968_2015 %in% 0 | LaborEarnings_AllJobs_Head_1968_2015>9999998,NA,LaborEarnings_AllJobs_Head_1968_2015)]
-
-panel1968_2015$RealHourlyEarningsAllJobs <- panel1968_2015$HourlyEarnings_AllJobs_1968_2015*panel1968_2015$ipc 
-panel1968_2015$RealHourlyEarningsMainJob <- panel1968_2015$HourlyEarnings_MainJob_1970_2015*panel1968_2015$ipc 
-panel1968_2015$RealLaborEarnings <- panel1968_2015$LaborEarnings_AllJobs_Head_1968_2015*panel1968_2015$ipc 
-panel1968_2015 <- panel1968_2015[,INDEPENDIENTE:=ifelse(any(PresentMain_Modalidad_Head %in% c(2,3)),TRUE,FALSE),by='pid']
-panel1968_2015 <- panel1968_2015[,FirstYear := min(as.numeric(as.character(year))), by='pid']
-panel1968_2015 <- panel1968_2015[,
-                                 SelectionKambourov:=ifelse( (any(EMPLOYER_SPELL > 1) & any(OCC_SPELL > 1) & any(IND_SPELL > 1)) & !any(Occ3d_OCC2010 %in% c(6005:6130,9800:9830)), TRUE,FALSE),
-                                 by='pid']
-panel1968_2015 <- panel1968_2015[,
-                                 lengthHistory:=.N,
-                                 by=c('pid')]
-panel1968_2015 <- panel1968_2015[,
-                                 lengthHistoryEMP:=.N,
-                                 by=c('pid','EMPLOYER_SPELL24T')]
 # Checking mincer style equations
-
 mincerTest <- lm(panel_km[year %in% c(1981:1993) & w_real_alljobs_79>0],
-                 formula=log(w_real_alljobs_79) ~ Grades_Individual_1968_2015  + OCC_EXP24T  + IND_EXP24T + EXP_EMP24T  )
+                 formula=log(w_real_alljobs_79) ~ Grades_Individual_1968_2015  + WorkExpSince18 + OCC_EXP24T  + IND_EXP24T + EXP_EMP24T + OJ24T + factor(year) + Region_1968_2015 )
+summary(mincerTest)
+
+#### INSTRUMENTOS ####
+
+# Instruments
+panel_km[,
+         `:=`(INSTR_EMP=EXP_EMP-mean(EXP_EMP),
+              INSTR_EMP2=(EXP_EMP^2)-(mean(EXP_EMP)^2),
+              INSTR_EMP3=(EXP_EMP^3)-(mean(EXP_EMP)^3)),
+         by=c('pid','EMPLOYER_SPELL')]
+
+panel_km[,
+         `:=`(INSTR_EMP24T=EXP_EMP24T-mean(EXP_EMP24T),
+              INSTR_EMP24T2=(EXP_EMP24T^2)-(mean(EXP_EMP24T)^2),
+              INSTR_EMP24T3=(EXP_EMP24T^3)-(mean(EXP_EMP24T)^3)),
+         by=c('pid','EMPLOYER_SPELL24T')]
+panel_km[,
+         `:=`(INSTR_OCC=OCC_EXP-mean(OCC_EXP),
+              INSTR_OCC2=(OCC_EXP^2)-(mean(OCC_EXP)^2),
+              INSTR_OCC3=(OCC_EXP^3)-(mean(OCC_EXP)^3)),
+               by=c('pid','OCC_SPELL')]
+panel_km[,
+         `:=`(INSTR_OCC24T=OCC_EXP24T-mean(OCC_EXP24T),
+              INSTR_OCC24T2=(OCC_EXP24T^2)-(mean(OCC_EXP24T)^2),
+              INSTR_OCC24T3=(OCC_EXP24T^3)-(mean(OCC_EXP24T)^3)),
+         by=c('pid','OCC_SPELL24T')]
+ panel_km[,
+          `:=`(INSTR_IND=IND_EXP-mean(IND_EXP),
+               INSTR_IND2=(IND_EXP^2)-(mean(IND_EXP)^2),
+               INSTR_IND3=(IND_EXP^3)-(mean(IND_EXP)^3)),
+          by=c('pid','IND_SPELL')]
+panel_km[,
+         `:=`(INSTR_IND24T=IND_EXP24T-mean(IND_EXP24T),
+              INSTR_IND24T2=(IND_EXP24T^2)-(mean(IND_EXP24T)^2),
+              INSTR_IND24T3=(IND_EXP24T^3)-(mean(IND_EXP24T)^3)),
+         by=c('pid','IND_SPELL24T')]
+panel_km[,
+         `:=`(INSTR_WORK=EXP_WORK-mean(EXP_WORK),
+              INSTR_WORK2=(EXP_WORK^2)-(mean(EXP_WORK)^2),
+              INSTR_WORK3=(EXP_WORK^3)-(mean(EXP_WORK)^3)),
+         by='pid']
+panel_km[,
+         INSTR_OJ:=  OJ-mean(OJ),
+         by=c('pid','EMPLOYER_SPELL')]
+panel_km[,
+         INSTR_OJ24T:=  OJ24T-mean(OJ24T),
+         by=c('pid','EMPLOYER_SPELL24T')]
+
+library(nlme)
+# Checking mincer style equations
+mincerTest <- gls(data = panel_km[year %in% c(1981:1993) & w_real_alljobs_79>0],na.action = "na.omit",
+                  model = log(w_real_alljobs_79) ~ Grades_Individual_1968_2015  + INSTR_WORK + INSTR_OCC24T  + INSTR_IND24T + INSTR_EMP24T + OJ24T + factor(year) + Region_1968_2015 + Married_Pairs_Indicator_1968_2015)
+summary(mincerTest)
+
+# Average tenure
+occ_max <- panel_km[,
+         max(OCC_EXP),
+         by=list(pid,OCC_SPELL)]
+mean(occ_max$V1)
+
