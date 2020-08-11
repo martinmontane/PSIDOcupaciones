@@ -466,44 +466,60 @@ mincerTest <- lm(panel_km[year %in% c(1981:1993) & w_real_alljobs_79>0],
                  formula=log(w_real_alljobs_79) ~ Grades_Individual_1968_2015  + WorkExpSince18 + OCC_EXP24T  + IND_EXP24T + EXP_EMP24T + OJ24T + factor(year) + Region_1968_2015 )
 summary(mincerTest)
 
+### Otras variables ###
+panel_km <- panel_km[,
+                     `:=`(EMP2_100 = EXP_EMP^2 * 100,
+                          OCC2_100 = OCC_EXP^2 * 100,
+                          OCC3_100 = OCC_EXP^3 * 100,
+                          IND2_100 = IND_EXP^2 * 100,
+                          IND3_100 = IND_EXP^3 * 100,
+                          WORK2    = WorkExpSince18^2,
+                          WORK3_100= WorkExpSince18^3 * 100)]
+
+panel_km <- panel_km[,
+                     `:=`(EMP2_100_24T = EXP_EMP24T^2 * 100,
+                          OCC2_100_24T = OCC_EXP24T^2 * 100,
+                          OCC3_100_24T = OCC_EXP24T^3 * 100,
+                          IND2_100_24T = IND_EXP24T^2 * 100,
+                          IND3_100_24T = IND_EXP24T^3 * 100)]
+
+
 #### INSTRUMENTOS ####
 
 # Instruments
 panel_km[,
          `:=`(INSTR_EMP=EXP_EMP-mean(EXP_EMP),
-              INSTR_EMP2=(EXP_EMP^2)-(mean(EXP_EMP)^2),
-              INSTR_EMP3=(EXP_EMP^3)-(mean(EXP_EMP)^3)),
+              INSTR_EMP2_100=((EXP_EMP^2)-(mean(EXP_EMP)^2))*100),
          by=c('pid','EMPLOYER_SPELL')]
 
 panel_km[,
          `:=`(INSTR_EMP24T=EXP_EMP24T-mean(EXP_EMP24T),
-              INSTR_EMP24T2=(EXP_EMP24T^2)-(mean(EXP_EMP24T)^2),
-              INSTR_EMP24T3=(EXP_EMP24T^3)-(mean(EXP_EMP24T)^3)),
+              INSTR_EMP2_100_24T=((EXP_EMP24T^2)-(mean(EXP_EMP24T)^2))*100),
          by=c('pid','EMPLOYER_SPELL24T')]
 panel_km[,
          `:=`(INSTR_OCC=OCC_EXP-mean(OCC_EXP),
-              INSTR_OCC2=(OCC_EXP^2)-(mean(OCC_EXP)^2),
-              INSTR_OCC3=(OCC_EXP^3)-(mean(OCC_EXP)^3)),
+              INSTR_OCC2_100=((OCC_EXP^2)-(mean(OCC_EXP)^2))*100,
+              INSTR_OCC3_100=((OCC_EXP^3)-(mean(OCC_EXP)^3))*100),
                by=c('pid','OCC_SPELL')]
 panel_km[,
          `:=`(INSTR_OCC24T=OCC_EXP24T-mean(OCC_EXP24T),
-              INSTR_OCC24T2=(OCC_EXP24T^2)-(mean(OCC_EXP24T)^2),
-              INSTR_OCC24T3=(OCC_EXP24T^3)-(mean(OCC_EXP24T)^3)),
+              INSTR_OCC2_100_24T=((OCC_EXP24T^2)-(mean(OCC_EXP24T)^2))*100,
+              INSTR_OCC3_100_24T=((OCC_EXP24T^3)-(mean(OCC_EXP24T)^3))*100),
          by=c('pid','OCC_SPELL24T')]
  panel_km[,
           `:=`(INSTR_IND=IND_EXP-mean(IND_EXP),
-               INSTR_IND2=(IND_EXP^2)-(mean(IND_EXP)^2),
-               INSTR_IND3=(IND_EXP^3)-(mean(IND_EXP)^3)),
+               INSTR_IND2_100=((IND_EXP^2)-(mean(IND_EXP)^2))*100,
+               INSTR_IND3_100=((IND_EXP^3)-(mean(IND_EXP)^3))*100),
           by=c('pid','IND_SPELL')]
 panel_km[,
          `:=`(INSTR_IND24T=IND_EXP24T-mean(IND_EXP24T),
-              INSTR_IND24T2=(IND_EXP24T^2)-(mean(IND_EXP24T)^2),
-              INSTR_IND24T3=(IND_EXP24T^3)-(mean(IND_EXP24T)^3)),
+              INSTR_IND2_100_24T=((IND_EXP24T^2)-(mean(IND_EXP24T)^2))*100,
+              INSTR_IND3_100_24T=((IND_EXP24T^3)-(mean(IND_EXP24T)^3))*100),
          by=c('pid','IND_SPELL24T')]
 panel_km[,
          `:=`(INSTR_WORK=EXP_WORK-mean(EXP_WORK),
               INSTR_WORK2=(EXP_WORK^2)-(mean(EXP_WORK)^2),
-              INSTR_WORK3=(EXP_WORK^3)-(mean(EXP_WORK)^3)),
+              INSTR_WORK3_100=((EXP_WORK^3)-(mean(EXP_WORK)^3))*100),
          by='pid']
 panel_km[,
          INSTR_OJ:=  OJ-mean(OJ),
@@ -518,9 +534,41 @@ mincerTest <- gls(data = panel_km[year %in% c(1981:1993) & w_real_alljobs_79>0],
                   model = log(w_real_alljobs_79) ~ Grades_Individual_1968_2015  + INSTR_WORK + INSTR_OCC24T  + INSTR_IND24T + INSTR_EMP24T + OJ24T + factor(year) + Region_1968_2015 + Married_Pairs_Indicator_1968_2015)
 summary(mincerTest)
 
-# Average tenure
-occ_max <- panel_km[,
-         max(OCC_EXP),
-         by=list(pid,OCC_SPELL)]
-mean(occ_max$V1)
+### Hacemos el crossover entre el sistema de tres digitos y los de dos y un digito, segun Appendix B del paper
 
+Occ_codes <- fread("occ_codes.csv")
+panel_km <- panel_km[Occ_codes, on=.(PresentMain_3dOccupation_Head_1968_2001 = OCC_3D)]
+Ind_codes <- fread("ind_codes.csv")
+panel_km <- panel_km[Ind_codes, on=.(PresentMain_3dIndustry_Head_1968_2001 = IND_3d)]
+
+### Table 1 - DESCRIPTIVE STATISTICS ###
+
+# Años de interes
+tabla_1 <- panel_km[year %in% 1981:1992]
+
+# Tres o mas observaciones 'confiebles'
+tabla_1 <- tabla_1[, reliable := ifelse(EmploymentStatus == 1, 1, 0)]
+tabla_1 <- tabla_1[, reliable := ifelse(reliable==1 & shift(reliable)==1 & shift(reliable, type = "lead"), 1, 0), by='pid']
+tabla_1 <- tabla_1[, reliable := any(reliable %in% 1), by='pid']
+tabla_1 <- tabla_1[reliable %in% TRUE]
+
+# Si entraron a partir del 80, tomamos a partir del segundo spell
+tabla_1 <- tabla_1[, second_spell := firstApp > 1980 & OCC_SPELL < 2 & IND_SPELL < 2]
+# Esto por ahi es mejor hacerlo con 24T:
+## tabla_1 <- tabla_1[, second_spell := firstApp > 1980 & OCC_SPELL24T < 2 & IND_SPEL24TL < 2]
+tabla_1 <- tabla_1[second_spell == FALSE]
+
+# Acomodamos la dummy para trabajadores cubiertos por un sindicato
+tabla_1 <- tabla_1[, sindicato := ifelse(TrabajoCubiertoSindicato_1979_2015 == 1, 1, 0)]
+
+# Acomodamos la dummy de casados
+tabla_1 <- tabla_1[, casados := ifelse(Married_Pairs_Indicator_1968_2015 == 0, 0, 1)]
+
+# Nos quedamos solo con las variables que nos interesan para la Tabla
+tabla_1 <- tabla_1[, .(Years_Individual_1968_2015, education, casados, sindicato, 
+                        WorkExpSince18, EXP_EMP, OCC_EXP, OCC_EXP24T, IND_EXP, IND_EXP24T)]
+
+# Armamos la Tabla
+library(stargazer)
+stargazer(tabla_1, title = 'DESCRIPTIVE STATISTICS', out = "./table_1_km.tex",
+          min.max = FALSE, style = 'aer')

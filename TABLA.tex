@@ -1,0 +1,45 @@
+\documentclass[11pt]{article}
+
+% File configuration packages
+\usepackage[landscape]{geometry}
+\usepackage{fancyhdr}
+\usepackage{setspace}
+\usepackage[spanish]{babel}
+\usepackage{booktabs} % Quality tables
+\usepackage{apacite}
+\usepackage{array}
+\usepackage{float} % Arrange for floating objects
+\usepackage{enumerate}
+\usepackage[
+  colorlinks=true,
+  linkcolor=black,
+  anchorcolor=black,
+  citecolor=black,
+  filecolor=black,
+  menucolor=black,
+  runcolor=black,
+  urlcolor=black
+]{hyperref}
+
+
+% Math related packages
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{mathabx}
+\usepackage{mathstyle}
+\usepackage{mathtools}
+\newcommand*\rfrac[2]{{}^{#1}\!/_{#2}} % Split frac: #1/#2
+
+% Graphs and Images related packages
+\usepackage{graphicx}
+\graphicspath{ {./} }
+\usepackage{pgfplots}
+\usepackage{tikz}
+\usetikzlibrary{positioning}
+
+\begin{document}
+\renewcommand{\tablename}{Tabla} 
+
+\input{table_1_km.tex}
+\end{document}
+
