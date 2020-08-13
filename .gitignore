@@ -6,6 +6,8 @@
 !makeids.R
 !buildPanelCustom.R
 !replica_km.R
+!Crosswalks.xlsx
+!psid_full_sample.R
 
 !*/
 .Rproj.user

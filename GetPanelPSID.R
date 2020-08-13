@@ -108,11 +108,12 @@ Additional3Job_WeekHrs_Spouse_2003_15 <- getNamesPSID("ER21522",tablaDatos,years
 PresentOrLastMain_Government_Head_2003_15 <- getNamesPSID("ER21149",tablaDatos,years=PSIDFullYears)
 PresentOrLastMain_Government_Spouse_2003_15 <- getNamesPSID("ER21399",tablaDatos,years=PSIDFullYears)
 
-# Años con el empleador tal cual aparece en el apéndice del paper
-YearsWithEmployer_Head_1968_1993 <- getNamesPSID("V200",tablaDatos,years=c(1968:2017))
+# Años con el empleador tal cual aparece en el apéndice del paper (desde el
+# 94 en adelante lo agregamos nosotros)
+YearsWithEmployer_Head_1968_1993 <- getNamesPSID("V200",tablaDatos,years=c(1968:1993))
 YearsWithEmployer_Head_1968_1993[2:8]  <-  getNamesPSID("V642",tablaDatos,years=c(1969:1975))                                    
-YearsWithEmployer_Head_1994_2015 <- getNamesPSID("ER2098",tablaDatos,years=c(1968:2017)) 
-
+YearsWithEmployer_Head_1994_2015 <- getNamesPSID("ER2098",tablaDatos,years=c(1994:2017)) 
+YearsWithEmployer_Head_1968_2015 <- c(YearsWithEmployer_Head_1968_1993,YearsWithEmployer_Head_1994_2015)
 # Información sobre position. Igual que como aparece en el paper
 # Hasta 1987 se computa en una sola variable la cantidad de meses en la misma
 # posición. Desde 1988 hasta 2001 la situación es un poco más compleja porque
@@ -210,10 +211,10 @@ dfVariablesFam <- data.frame(year=PSIDFullYears,
                              EmploymentStatus_Spouse_1976_2015=EmploymentStatus_Spouse_1976_2015,
                              HourlyEarnings_AllJobs_Head_1968_2015=HourlyEarnings_AllJobs_Head_1968_2015,
                              HourlyEarnings_AllJobs_Spouse_1968_2015=HourlyEarnings_AllJobs_Spouse_1968_2015,
-                             EmployerYears_Head_1968_2015=EmployerYears_Head_1968_2015,
+                             YearsWithEmployer_Head_1968_2015=YearsWithEmployer_Head_1968_2015,
                              Region_1968_2015=Region_1968_2015,
-                             YearsWithEmployer_Head_1968_1993=YearsWithEmployer_Head_1968_1993,
-                             YearsWithEmployer_Head_1994_2015=YearsWithEmployer_Head_1994_2015,
+                             # YearsWithEmployer_Head_1968_1993=YearsWithEmployer_Head_1968_1993,
+                             # YearsWithEmployer_Head_1994_2015=YearsWithEmployer_Head_1994_2015,
                              race_1968_2015=race,
                              WorkExpSince18_Head=WorkExpSince18_Head,
                              WorkExpSince18_Spouse=WorkExpSince18_Spouse,
@@ -276,10 +277,10 @@ panel1968_2015<- panel1968_2015 %>%
          MainJob_Government_1979_2001=ifelse(relation.head %in% c(20,22), MainJob_Government_Spouse_1979_2001, MainJob_Government_Head_1975_2001),
          EmploymentStatus = ifelse(relation.head %in% c(20,22),EmploymentStatus_Spouse_1976_2015,EmploymentStatus_Head_1968_2015),
          HourlyEarnings_AllJobs_1968_2015 = ifelse(relation.head %in% c(20,22),HourlyEarnings_AllJobs_Spouse_1968_2015,HourlyEarnings_AllJobs_Head_1968_2015),
-         EmployerYears_1968_2015=EmployerYears_Head_1968_2015,
+         YearsWithEmployer_Head_1968_2015=YearsWithEmployer_Head_1968_2015,
          Married_Pairs_Indicator_1968_2015=Married_Pairs_Indicator_1968_2015,
          Region_1968_2015=Region_1968_2015,
-         YearsWithEmployer_1968_2015=YearsWithEmployer_Head_1968_1993,
+         YearsWithEmployer_1968_2015=YearsWithEmployer_Head_1968_2015,
          race_1968_2015=race_1968_2015,
          WorkExpSince18 = ifelse(relation.head %in% c(2,20,22), WorkExpSince18_Spouse, WorkExpSince18_Head),
          WorkExpSince18FullTime = ifelse(relation.head %in% c(2,20,22), WorkExpSince18FullTime_Spouse, WorkExpSince18FullTime_Head)

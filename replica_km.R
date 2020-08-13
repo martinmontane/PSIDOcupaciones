@@ -528,12 +528,6 @@ panel_km[,
          INSTR_OJ24T:=  OJ24T-mean(OJ24T),
          by=c('pid','EMPLOYER_SPELL24T')]
 
-library(nlme)
-# Checking mincer style equations
-mincerTest <- gls(data = panel_km[year %in% c(1981:1993) & w_real_alljobs_79>0],na.action = "na.omit",
-                  model = log(w_real_alljobs_79) ~ Grades_Individual_1968_2015  + INSTR_WORK + INSTR_OCC24T  + INSTR_IND24T + INSTR_EMP24T + OJ24T + factor(year) + Region_1968_2015 + Married_Pairs_Indicator_1968_2015)
-summary(mincerTest)
-
 ### Hacemos el crossover entre el sistema de tres digitos y los de dos y un digito, segun Appendix B del paper
 
 Occ_codes <- fread("occ_codes.csv")
@@ -541,19 +535,41 @@ panel_km <- panel_km[Occ_codes, on=.(PresentMain_3dOccupation_Head_1968_2001 = O
 Ind_codes <- fread("ind_codes.csv")
 panel_km <- panel_km[Ind_codes, on=.(PresentMain_3dIndustry_Head_1968_2001 = IND_3d)]
 
+
+# Checking mincer style equations
+mincerTest <- lm(data = panel_km[year %in% c(1981:1993) & w_real_alljobs_79>0],
+                  formula = log(w_real_alljobs_79) ~ Grades_Individual_1968_2015  + EXP_WORK +
+                   OCC_EXP  +
+                   IND_EXP +
+                   EXP_EMP +
+                   OJ +
+                   factor(year) +
+                   Region_1968_2015 +
+                   Married_Pairs_Indicator_1968_2015)
+summary(mincerTest)
+library(nlme)
+mincerTest <- gls(data = panel_km[year %in% c(1981:1993) & w_real_alljobs_79>0],na.action = "na.omit",
+                  model = log(w_real_alljobs_79) ~ Grades_Individual_1968_2015  + INSTR_WORK + INSTR_OCC  + INSTR_IND + INSTR_EMP + OJ + factor(year) + Region_1968_2015 + Married_Pairs_Indicator_1968_2015)
+  summary(mincerTest)
+
+  # Tres o mas observaciones 'confiebles'
+  panel_km <- panel_km[, reliable := ifelse(EmploymentStatus %in% 1, 1, 0)]
+  panel_km <- panel_km[, reliable := ifelse(reliable==1 & shift(reliable)==1 & shift(reliable, type = "lead"), 1, 0), by='pid']
+  panel_km <- panel_km[, reliable := any(reliable %in% 1), by='pid']
+  # panel_km <- panel_km[reliable %in% TRUE]
+  
+  # Si entraron a partir del 80, tomamos a partir del segundo spell
+  panel_km <- panel_km[,
+                       first_spell_1981 := firstApp > 1980 & OCC_SPELL < 2 & IND_SPELL < 2]
+  
+  
+  mincerTest <- gls(data = panel_km[year %in% c(1981:1993) & w_real_alljobs_79>0 & first_spell_1981 == FALSE],na.action = "na.omit",
+                    model = log(w_real_alljobs_79) ~ Grades_Individual_1968_2015  + INSTR_WORK + INSTR_OCC  + INSTR_IND + INSTR_EMP + OJ + factor(year) + Region_1968_2015 + Married_Pairs_Indicator_1968_2015)
+  summary(mincerTest)
+
 ### Table 1 - DESCRIPTIVE STATISTICS ###
 
-# Años de interes
-tabla_1 <- panel_km[year %in% 1981:1992]
 
-# Tres o mas observaciones 'confiebles'
-tabla_1 <- tabla_1[, reliable := ifelse(EmploymentStatus == 1, 1, 0)]
-tabla_1 <- tabla_1[, reliable := ifelse(reliable==1 & shift(reliable)==1 & shift(reliable, type = "lead"), 1, 0), by='pid']
-tabla_1 <- tabla_1[, reliable := any(reliable %in% 1), by='pid']
-tabla_1 <- tabla_1[reliable %in% TRUE]
-
-# Si entraron a partir del 80, tomamos a partir del segundo spell
-tabla_1 <- tabla_1[, second_spell := firstApp > 1980 & OCC_SPELL < 2 & IND_SPELL < 2]
 # Esto por ahi es mejor hacerlo con 24T:
 ## tabla_1 <- tabla_1[, second_spell := firstApp > 1980 & OCC_SPELL24T < 2 & IND_SPEL24TL < 2]
 tabla_1 <- tabla_1[second_spell == FALSE]
