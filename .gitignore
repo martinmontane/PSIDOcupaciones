@@ -8,6 +8,9 @@
 !replica_km.R
 !Crosswalks.xlsx
 !psid_full_sample.R
+!TABLA.tex
+!occ_codes.csv
+!ind_codes.csv
 
 !*/
 .Rproj.user
