@@ -65,6 +65,10 @@ panel_km <- panel_km[,menos_500horas := ifelse(TodosEmpleos_YearHrs_Head_1968_20
 # Paso 7: identificamos las observaciones que o no trabajaron o tuvieron ingreso cero
 panel_km <- panel_km[,sin_ingresos := ifelse(wage_less_79_usd_worker %in% 0,TRUE,FALSE)]
 
+# Eliminamos a los que trabajan menos de 500 horas y a los que no tienen ingresos
+panel_km <- panel_km[!menos_500horas %in% TRUE & 
+                     !sin_ingresos %in% TRUE]
+
 # Paso 8: identificar cambio de empleo. Esta parte implica varios pasos. De acá
 # en adelante algunos pasos nos van a servir sólo para replicar el ejercicio
 # hasta el 2015. Enfoquémonos en el período de los autores para ver si 

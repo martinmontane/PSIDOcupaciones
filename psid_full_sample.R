@@ -8,6 +8,21 @@ panel1968_2015 <- panel1968_2015[,!colnames(panel1968_2015) %in% c('PresentOrLas
                                                                    'PresentOrLastMain_3dIndustry_2003_15',
                                                                    'PresentMain_3dIndustry_Head_1968_2001','PresentMain_3dIndustry_Spouse_1968_2001',
                                                                    'PresentMain_3dOccupation_Head_1968_2001','PresentMain_3dIndustry_Spouse_1968_2001'), with=FALSE]
+
+# Calculamos el salario horario real de los trabajadores. Para eso necesitamos
+# el CPI
+cpi <- fread("https://fred.stlouisfed.org/graph/fredgraph.csv?bgcolor=%23e1e9f0&chart_type=line&drp=0&fo=open%20sans&graph_bgcolor=%23ffffff&height=450&mode=fred&recession_bars=on&txtcolor=%23444444&ts=12&tts=12&width=1168&nt=0&thu=0&trc=0&show_legend=yes&show_axis_titles=yes&show_tooltip=yes&id=CPALTT01USA661S&scale=left&cosd=1960-01-01&coed=2019-01-01&line_color=%234572a7&link_values=false&line_style=solid&mark_type=none&mw=3&lw=2&ost=-99999&oet=99999&mma=0&fml=a&fq=Annual&fam=avg&fgst=lin&fgsnd=2009-06-01&line_index=1&transformation=lin&vintage_date=2020-07-29&revision_date=2020-07-29&nd=1960-01-01")
+cpi <- cpi[,DATE:= as.Date(DATE)]
+cpi <- cpi[,year:= year(DATE)]
+cpi <- cpi[,base79:=CPALTT01USA661S[year==1979]/CPALTT01USA661S]
+
+panel1968_2015 <- panel1968_2015[cpi,on=c("year"),base79:=base79]
+# En 1968 y 1971 la pregunta V337 (HourlyEarnings_AllJobs_1968_2015) usó 99.99 para identificar
+# los que no habían tenido ingresos ese año
+panel1968_2015[year %in% c(1968,1971) & HourlyEarnings_AllJobs_1968_2015 == 99.99,HourlyEarnings_AllJobs_1968_2015:=0]
+panel1968_2015 <- panel1968_2015[,w_real_alljobs_79:=HourlyEarnings_AllJobs_1968_2015*base79]
+
+
 # Marital status and region variable data wrangling  
 panel1968_2015$Married_Pairs_Indicator_1968_2015 <- ifelse(panel1968_2015$Married_Pairs_Indicator_1968_2015 %in% c(1,2,3),
                                                            1,
@@ -31,6 +46,32 @@ panel1968_2015 <- panel1968_2015[Years_Individual_1968_2015>17 & Years_Individua
 # Solo continental US
 panel1968_2015 <- panel1968_2015[Region_1968_2015 %in% c(1:4)]
 
+# Acá creamos algunas variables auxiliares para cada individuo para tomar después
+# la decisión de mantenerlos o excluirlos en la muestra
+panel1968_2015 <- panel1968_2015[,
+                                 `:=`(government_worker = any(MainJob_Government_Head_1975_2001 %in% 1),
+                                      independent_worker= any(PresentMain_Modalidad_Head_1968_2001 %in% c(2,3)),
+                                      wage_less_79_usd_worker =  any(w_real_alljobs_79>0 & w_real_alljobs_79<1)),
+                                 by=list(pid)]
+
+# Paso 5: eliminar a todas las personas que cumplen las siguientes condiciones
+# a) trabajan en el gobierno
+# b) trabajaron como independientes
+# c) tuvieron ingresos laborales por hora menores a un dólar (dolares 1979)
+# d) fueron farmers/trabajaron en el army
+panel1968_2015 <- panel1968_2015[!government_worker %in% TRUE & 
+                                   !independent_worker %in% TRUE &
+                                   !wage_less_79_usd_worker %in% TRUE]
+
+# Paso 6: identificamos las observaciones que trabajaron menos de 500 horas
+panel1968_2015 <- panel1968_2015[,menos_500horas := ifelse(TodosEmpleos_YearHrs_Head_1968_2015<=500,TRUE,FALSE)]
+
+# Paso 7: identificamos las observaciones que o no trabajaron o tuvieron ingreso cero
+panel1968_2015 <- panel1968_2015[,sin_ingresos := ifelse(wage_less_79_usd_worker %in% 0,TRUE,FALSE)]
+
+# Eliminamos a los que trabajan menos de 500 horas y a los que no tienen ingresos
+panel1968_2015 <- panel1968_2015[!menos_500horas %in% TRUE & 
+                                   !sin_ingresos %in% TRUE]
 
 # We need to know the experience with employer. It will be useful not only to 
 # measure the returns to employer tenure, but also to detect industry and occupation
@@ -169,6 +210,11 @@ panel1968_2015[year>=2003&year<=2015]<-
 # Codes that could not be matched to the 2010 Census occupational codes
 codesNotMatched1970_2010 <- sort(unique(panel1968_2015[year>=1968 & year<=2001 & !is.na(Occ3d) & is.na(Occ3d_OCC2010)]$Occ3d))
 codesNotMatched2000_2010 <- sort(unique(panel1968_2015[year>=2003 & year<=2015 & !is.na(Occ3d) & is.na(Occ3d_OCC2010)]$Occ3d))
+
+# Ahora que ya tenemos los codigos de Occ homogeneizados sacamos a quienes trabajan en farmy o army
+panel1968_2015 <- panel1968_2015[, army_farmer_worker := any(Occ3d %in% c(9840, 6005, 6020, 6040, 6050)), by=list(pid)]
+
+panel1968_2015 <- panel1968_2015[!army_farmer_worker %in% TRUE]
 
 ## ESTA PARTE LA DEJO COMENTADA,PERO NOS VA A SERVIR PARA LOS SOC-CODES DE LA
 ## O*NET. TENER PRESENTE
@@ -591,41 +637,41 @@ panel1968_2015[,
 
 ### Hacemos el crossover entre el sistema de tres digitos y los de dos y un digito, segun Appendix B del paper
 
-# Occ_codes <- fread("occ_codes.csv")
-# panel1968_2015 <- panel1968_2015[Occ_codes, on=.(Occ3d = OCC_3D)]
-# Ind_codes <- fread("ind_codes.csv")
-# panel1968_2015 <- panel1968_2015[Ind_codes, on=.(Ind3d = IND_3d)]
-# 
-# # Checking mincer style equations
-# mincerTest <- lm(data = panel1968_2015[year %in% c(1981:1993) & w_real_alljobs_79>0],
-#                  formula = log(w_real_alljobs_79) ~ Grades_Individual_1968_2015  + EXP_WORK +
-#                    OCC_EXP  +
-#                    IND_EXP +
-#                    EXP_EMP +
-#                    OJ +
-#                    factor(year) +
-#                    Region_1968_2015 +
-#                    Married_Pairs_Indicator_1968_2015)
-# summary(mincerTest)
-# library(nlme)
-# mincerTest <- gls(data = panel1968_2015[year %in% c(1981:1993) & w_real_alljobs_79>0],na.action = "na.omit",
-#                   model = log(w_real_alljobs_79) ~ Grades_Individual_1968_2015  + INSTR_WORK + INSTR_OCC  + INSTR_IND + INSTR_EMP + OJ + factor(year) + Region_1968_2015 + Married_Pairs_Indicator_1968_2015)
-# summary(mincerTest)
-# 
-# # Tres o mas observaciones 'confiebles'
-# panel1968_2015 <- panel1968_2015[, reliable := ifelse(EmploymentStatus %in% 1, 1, 0)]
-# panel1968_2015 <- panel1968_2015[, reliable := ifelse(reliable==1 & shift(reliable)==1 & shift(reliable, type = "lead"), 1, 0), by='pid']
-# panel1968_2015 <- panel1968_2015[, reliable := any(reliable %in% 1), by='pid']
-# # panel1968_2015 <- panel1968_2015[reliable %in% TRUE]
-# 
-# # Si entraron a partir del 80, tomamos a partir del segundo spell
-# panel1968_2015 <- panel1968_2015[,
-#                      first_spell_1981 := firstApp > 1980 & OCC_SPELL < 2 & IND_SPELL < 2]
-# 
-# 
-# mincerTest <- gls(data = panel1968_2015[year %in% c(1981:1993) & w_real_alljobs_79>0 & first_spell_1981 == FALSE],na.action = "na.omit",
-#                   model = log(w_real_alljobs_79) ~ Grades_Individual_1968_2015  + INSTR_WORK + INSTR_OCC  + INSTR_IND + INSTR_EMP + OJ + factor(year) + Region_1968_2015 + Married_Pairs_Indicator_1968_2015)
-# summary(mincerTest)
+Occ_codes <- fread("occ_codes.csv")
+panel1968_2015 <- panel1968_2015[Occ_codes, on=.(Occ3d = OCC_3D)]
+Ind_codes <- fread("ind_codes.csv")
+panel1968_2015 <- panel1968_2015[Ind_codes, on=.(Ind3d = IND_3d)]
+
+# Checking mincer style equations
+mincerTest <- lm(data = panel1968_2015[year %in% c(1981:1993) & w_real_alljobs_79>0],
+                 formula = log(w_real_alljobs_79) ~ Grades_Individual_1968_2015  + EXP_WORK +
+                   OCC_EXP  +
+                   IND_EXP +
+                   EXP_EMP +
+                   OJ +
+                   factor(year) +
+                   Region_1968_2015 +
+                   Married_Pairs_Indicator_1968_2015)
+summary(mincerTest)
+library(nlme)
+mincerTest <- gls(data = panel1968_2015[year %in% c(1981:1993) & w_real_alljobs_79>0],na.action = "na.omit",
+                  model = log(w_real_alljobs_79) ~ Grades_Individual_1968_2015  + INSTR_WORK + INSTR_OCC  + INSTR_IND + INSTR_EMP + OJ + factor(year) + Region_1968_2015 + Married_Pairs_Indicator_1968_2015)
+summary(mincerTest)
+
+# Tres o mas observaciones 'confiebles'
+panel1968_2015 <- panel1968_2015[, reliable := ifelse(EmploymentStatus %in% 1, 1, 0)]
+panel1968_2015 <- panel1968_2015[, reliable := ifelse(reliable==1 & shift(reliable)==1 & shift(reliable, type = "lead"), 1, 0), by='pid']
+panel1968_2015 <- panel1968_2015[, reliable := any(reliable %in% 1), by='pid']
+# panel1968_2015 <- panel1968_2015[reliable %in% TRUE]
+
+# Si entraron a partir del 80, tomamos a partir del segundo spell
+panel1968_2015 <- panel1968_2015[,
+                     first_spell_1981 := firstApp > 1980 & OCC_SPELL < 2 & IND_SPELL < 2]
+
+
+mincerTest <- gls(data = panel1968_2015[year %in% c(1981:1993) & w_real_alljobs_79>0 & first_spell_1981 == FALSE],na.action = "na.omit",
+                  model = log(w_real_alljobs_79) ~ Grades_Individual_1968_2015  + INSTR_WORK + INSTR_OCC  + INSTR_IND + INSTR_EMP + OJ + factor(year) + Region_1968_2015 + Married_Pairs_Indicator_1968_2015)
+summary(mincerTest)
 
 
 ### Table 1 - DESCRIPTIVE STATISTICS ###
@@ -651,9 +697,7 @@ tabla_1 <- tabla_1[, sindicato := ifelse(TrabajoCubiertoSindicato_1979_2015 == 1
 tabla_1 <- tabla_1[, casados := ifelse(Married_Pairs_Indicator_1968_2015 == 0, 0, 1)]
 
 # Nos quedamos solo con las variables que nos interesan para la Tabla
-tabla_1 <- tabla_1[, .(Years_Individual_1968_2015, 
-                       # education, 
-                       casados, sindicato, 
+tabla_1 <- tabla_1[, .(Years_Individual_1968_2015, Grades_Individual_1968_2015, casados, sindicato, 
                        WorkExpSince18, EXP_EMP, OCC_EXP, OCC_EXP24T, IND_EXP, IND_EXP24T)]
 
 # Armamos la Tabla
