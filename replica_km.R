@@ -21,7 +21,7 @@ panel_km[education %in% 0,
 panel_km <- panel_km[Sex_Individual_1968_2015==1 & race_1968_2015==1 & relation.head %in% c(1,10)]
 # Paso 3: entre 18 y 64 años
 panel_km <- panel_km[Years_Individual_1968_2015>17 & Years_Individual_1968_2015<65]
-# Paso 4: continental europe
+# Paso 4: continental US
 panel_km <- panel_km[Region_1968_2015 %in% c(1:4)]
 
 # Calculamos el salario horario real de los trabajadores. Para eso necesitamos
@@ -568,8 +568,17 @@ mincerTest <- gls(data = panel_km[year %in% c(1981:1993) & w_real_alljobs_79>0],
   summary(mincerTest)
 
 ### Table 1 - DESCRIPTIVE STATISTICS ###
+# Años de interes
+tabla_1 <- panel_km[year %in% 1981:1992]
 
+# Tres o mas observaciones 'confiebles'
+tabla_1 <- tabla_1[, reliable := ifelse(EmploymentStatus == 1, 1, 0)]
+tabla_1 <- tabla_1[, reliable := ifelse(reliable==1 & shift(reliable)==1 & shift(reliable, type = "lead"), 1, 0), by='pid']
+tabla_1 <- tabla_1[, reliable := any(reliable %in% 1), by='pid']
+tabla_1 <- tabla_1[reliable %in% TRUE]
 
+# Si entraron a partir del 80, tomamos a partir del segundo spell
+tabla_1 <- tabla_1[, second_spell := firstApp > 1980 & OCC_SPELL < 2 & IND_SPELL < 2]
 # Esto por ahi es mejor hacerlo con 24T:
 ## tabla_1 <- tabla_1[, second_spell := firstApp > 1980 & OCC_SPELL24T < 2 & IND_SPEL24TL < 2]
 tabla_1 <- tabla_1[second_spell == FALSE]

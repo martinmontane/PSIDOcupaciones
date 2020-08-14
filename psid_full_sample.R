@@ -2,10 +2,10 @@ source("GetPanelPSID.R")
 # In 2003 PSID tries to better capture the variables linked to each of the jobs that 
 # a worker holds. Here we collapse pre 2003 data with main job data from 2003 onwards
 
-panel1968_2015 <- as.data.table(panel1968_2015)[,`:=` (Occ3d=ifelse(year %in% c(2003:2017),PresentOrLastMain_3dOccupation_2003_15,PresentMainJob_3dOcc_1968_2001),
-                                                       Ind3d=ifelse(year %in% c(2003:2017),PresentOrLastMain_3dIndustry_2003_15,PresentMainJob_3dInd_1968_2001))]
-panel1968_2015 <- panel1968_2015[,!colnames(panel1968_2015) %in% c('PresentOrLastMain_3dOccupation_2003_15','PresentMainJob_3dOcc_1968_2001',
-                                                                   'PresentOrLastMain_3dIndustry_2003_15','PresentMainJob_3dInd_1968_2001',
+panel1968_2015 <- as.data.table(panel1968_2015)[,`:=` (Occ3d=ifelse(year %in% c(2003:2017),PresentOrLastMain_3dOccupation_2003_15,Occ3d),
+                                                       Ind3d=ifelse(year %in% c(2003:2017),PresentOrLastMain_3dIndustry_2003_15,Ind3d))]
+panel1968_2015 <- panel1968_2015[,!colnames(panel1968_2015) %in% c('PresentOrLastMain_3dOccupation_2003_15','Occ3d',
+                                                                   'PresentOrLastMain_3dIndustry_2003_15','Ind3d',
                                                                    'PresentMain_3dIndustry_Head_1968_2001','PresentMain_3dIndustry_Spouse_1968_2001',
                                                                    'PresentMain_3dOccupation_Head_1968_2001','PresentMain_3dIndustry_Spouse_1968_2001'), with=FALSE]
 # Marital status and region variable data wrangling  
@@ -217,7 +217,446 @@ panel1968_2015$ind3d_IND1990 <- ifelse(panel1968_2015$ind3d_IND1990 %in% 0,
 
 ## De acá en adelante ya se puede replicar creo que bastante linealmente lo de
 # replica_km. Dos cuidados relevantes: 1) hay que usar occ3d e Ind3d como variables
-# que tienen la experiencia en la ocupación y la industria. 2) Desde 2001 en
+# que tienen la experiencia en la ocupación y la industria. 2) Desde 1997 en
 # adelante la encuesta se hace cada dos años (hay que sumar 2 años de experiencia
 # si dice que está trabajando en 2005, por ejemplo). Esto se puede hacer
 # con dif-years (tener cuidado de no eliminar observaciones antes)
+
+# We find changes in occupation and industry based on EMP_CHANGE and EMP_CHANGE24T
+# Only changes in reported activity or occupation
+# _UNC : uncontrolled. Without employer change detection
+# _EMP : New employer
+# _EMP24T : New employer with 24T detection
+panel1968_2015 <- panel1968_2015[order(pid,year)]
+panel1968_2015 <- panel1968_2015[!is.na(Ind3d),
+                     `:=`(IND_CHANGE_UNC=ifelse(!Ind3d == shift(Ind3d,type='lag'),TRUE,FALSE)),
+                     by=c('pid')]
+panel1968_2015 <- panel1968_2015[!is.na(Occ3d),
+                     `:=`(OCC_CHANGE_UNC=ifelse(!Occ3d == shift(Occ3d),TRUE,FALSE)),
+                     by=c('pid')]
+panel1968_2015 <- panel1968_2015[,`:=` (IND_CHANGE_UNC=ifelse(is.na(IND_CHANGE_UNC),FALSE,IND_CHANGE_UNC),
+                            OCC_CHANGE_UNC=ifelse(is.na(OCC_CHANGE_UNC),FALSE,OCC_CHANGE_UNC))]
+
+panel1968_2015 <- panel1968_2015[,`:=` (IND_CHANGE_EMP=ifelse(IND_CHANGE_UNC & EMP_CHANGE,TRUE,FALSE),
+                            OCC_CHANGE_EMP=ifelse(OCC_CHANGE_UNC & EMP_CHANGE,TRUE,FALSE),
+                            IND_CHANGE_EMP24T=ifelse(IND_CHANGE_UNC & EMP_CHANGE24T,TRUE,FALSE),
+                            OCC_CHANGE_EMP24T=ifelse(OCC_CHANGE_UNC & EMP_CHANGE24T,TRUE,FALSE))]
+# Checking act and occ switches
+grafico<-melt(panel1968_2015[EmploymentStatus == 1,
+                       list(IND_CHANGE_UNC=sum(IND_CHANGE_UNC,na.rm = TRUE)/.N,
+                            IND_CHANGE_EMP=sum(IND_CHANGE_EMP,na.rm = TRUE)/.N,
+                            IND_CHANGE_EMP24T=sum(IND_CHANGE_EMP24T,na.rm = TRUE)/.N),
+                       list(year)][order(year)],id.vars = 'year')
+
+ggplot(grafico) + 
+  geom_line(aes(x=year, y=value,group=variable, color=variable)) +
+  theme_fivethirtyeight() +
+  scale_y_continuous(labels = scales::percent_format()) +
+  labs(title = 'Share of employer change',
+       subtitle='Percentage of man working for a new employer as a share of people working.\nPartition UNC/T/T24 method.')
+
+
+# They closely match between 1968 and 1978, as K&M say in their paper. We will
+# assign occupational and industry switches with the uncontrolled version prior to 1980.
+
+panel1968_2015 <- panel1968_2015[,`:=` (IND_CHANGE_EMP=ifelse(year %in% c(1968:1980),IND_CHANGE_UNC,IND_CHANGE_EMP),
+                            OCC_CHANGE_EMP=ifelse(year %in% c(1968:1980),OCC_CHANGE_UNC,OCC_CHANGE_EMP),
+                            IND_CHANGE_EMP24T=ifelse(year %in% c(1968:1980),IND_CHANGE_UNC,IND_CHANGE_EMP24T),
+                            OCC_CHANGE_EMP24T=ifelse(year %in% c(1968:1980),OCC_CHANGE_UNC,OCC_CHANGE_EMP24T))]
+
+
+grafico<-melt(panel1968_2015[EmploymentStatus == 1 & Sex_Individual_1968_2015 == 1,
+                       list(IND_CHANGE_UNC=sum(IND_CHANGE_UNC,na.rm = TRUE)/.N,
+                            IND_CHANGE_EMP=sum(IND_CHANGE_EMP,na.rm = TRUE)/.N,
+                            IND_CHANGE_EMP24T=sum(IND_CHANGE_EMP24T,na.rm = TRUE)/.N),
+                       list(year)][order(year)],id.vars = 'year')
+ggplot(grafico[!variable %in% 'IND_CHANGE_UNC' & !year %in% c(1968,2017)] ) + 
+  geom_line(aes(x=year, y=value,group=variable, color=variable)) +
+  theme_fivethirtyeight() +
+  scale_y_continuous(labels = scales::percent_format()) +
+  labs(title = 'Share of employer change',
+       subtitle='Percentage of man working for a new employer as a share of people working.\nPartition T method.')
+
+# Now that we have the breaks, lets build the the spells.
+# First, we indicate the first observation of the first period in which a person
+# was employed
+panel1968_2015 <- panel1968_2015[,ever_employed:=ifelse(any(EmploymentStatus %in% 1), TRUE, FALSE),by="pid"]
+panel1968_2015 <- panel1968_2015[ever_employed==TRUE]
+panel1968_2015$ever_employed <- NULL
+panel1968_2015 <-panel1968_2015[year < 1998, `:=`(EMPLOYER_SPELL24T=ifelse(year==min(year[EmploymentStatus%in% 1]),1,0),
+                           EMPLOYER_SPELL=ifelse(year==min(year[EmploymentStatus%in% 1]),1,0)),
+                    by='pid']
+panel1968_2015 <-panel1968_2015[year > 1998, `:=`(EMPLOYER_SPELL24T=ifelse(year==min(year[EmploymentStatus%in% 1]),2,0),
+                                       EMPLOYER_SPELL=ifelse(year==min(year[EmploymentStatus%in% 1]),2,0)),
+                                by='pid']
+# Convertimos a 1 en la variable de los spell cuando hubo un cambio, con excepción
+# del primer trabajo
+panel1968_2015 <- panel1968_2015[EMPLOYER_SPELL %in% 0, EMPLOYER_SPELL:=as.numeric(EMP_CHANGE)]
+panel1968_2015 <- panel1968_2015[EMPLOYER_SPELL24T %in% 0, EMPLOYER_SPELL:=as.numeric(EMP_CHANGE24T)]
+
+# Ahora ya podemos usar cumsum para tener el spell
+panel1968_2015 <- panel1968_2015[,
+                     EMPLOYER_SPELL:= cumsum(EMPLOYER_SPELL),
+                     by = "pid"]
+panel1968_2015 <- panel1968_2015[,
+                     EMPLOYER_SPELL24T:= cumsum(EMPLOYER_SPELL24T),
+                     by = "pid"]
+
+# Quedan algunos NAs en los spells, que corresponden simplemente a algunos trabajadores
+# que no estaban ocupados cuando entraron a la muestra. Vamos a marcar a ellos y a
+# todos los spells sin ninguna observación con employmentstatus 1 como NAs
+
+panel1968_2015 <- panel1968_2015[,EMPLOYER_SPELL:=ifelse(!any(EmploymentStatus %in% 1),NA,EMPLOYER_SPELL)
+                     ,list(pid,EMPLOYER_SPELL)]
+
+panel1968_2015 <- panel1968_2015[,EMPLOYER_SPELL24T:=ifelse(!any(EmploymentStatus %in% 1),NA,EMPLOYER_SPELL24T)
+                     ,list(pid,EMPLOYER_SPELL24T)]
+
+# Summary of employment spells
+table(panel1968_2015[,list(min=min(EMPLOYER_SPELL),
+                     max=max(EMPLOYER_SPELL)),by='pid']$max)
+panel1968_2015$EXP_EMP <- panel1968_2015$EXP_EMP24T <- as.double()
+# Remove all data before first tenure with employer data
+panel1968_2015 <- panel1968_2015[,firstTenureYear:=min(year[!is.na(YearsWithEmployer_1968_2015)]), by=c('pid')]
+panel1968_2015 <- panel1968_2015[!firstTenureYear %in% 'Inf']
+panel1968_2015 <- panel1968_2015[!year<firstTenureYear]
+
+
+# Builds occ and ind spells
+panel1968_2015 <- panel1968_2015[year < 1998,
+                                 `:=`(OCC_SPELL=ifelse(OCC_CHANGE_EMP,1,0),
+                                      IND_SPELL=ifelse(IND_CHANGE_EMP,1,0),
+                                      OCC_SPELL24T=ifelse(OCC_CHANGE_EMP24T,1,0),
+                                      IND_SPELL24T=ifelse(IND_CHANGE_EMP24T,1,0))]
+panel1968_2015 <- panel1968_2015[year > 1998,
+                                 `:=`(OCC_SPELL=ifelse(OCC_CHANGE_EMP,2,0),
+                                      IND_SPELL=ifelse(IND_CHANGE_EMP,2,0),
+                                      OCC_SPELL24T=ifelse(OCC_CHANGE_EMP24T,2,0),
+                                      IND_SPELL24T=ifelse(IND_CHANGE_EMP24T,2,0))]
+panel1968_2015 <- panel1968_2015[,`:=`(OCC_SPELL=ifelse(year==min(year[EmploymentStatus%in% 1 & !is.na(Occ3d)]),1,OCC_SPELL),
+                           IND_SPELL=ifelse(year==min(year[EmploymentStatus%in% 1 & !is.na(Ind3d)]),1,IND_SPELL),
+                           OCC_SPELL24T=ifelse(year==min(year[EmploymentStatus%in% 1 & !is.na(Occ3d)]),1,OCC_SPELL24T),
+                           IND_SPELL24T=ifelse(year==min(year[EmploymentStatus%in% 1 & !is.na(Ind3d)]),1,IND_SPELL24T)),
+                     by='pid']
+panel1968_2015 <- panel1968_2015[,
+                     `:=`(OCC_SPELL=ifelse(is.na(OCC_SPELL),0,OCC_SPELL),
+                          IND_SPELL=ifelse(is.na(IND_SPELL),0,IND_SPELL),
+                          OCC_SPELL24T=ifelse(is.na(OCC_SPELL24T),0,OCC_SPELL24T),
+                          IND_SPELL24T=ifelse(is.na(IND_SPELL24T),0,IND_SPELL24T)),
+                     by='pid']
+panel1968_2015 <- panel1968_2015[,
+                     `:=`(OCC_SPELL=cumsum(.SD$OCC_SPELL),
+                          IND_SPELL=cumsum(.SD$IND_SPELL),
+                          OCC_SPELL24T=cumsum(.SD$OCC_SPELL24T),
+                          IND_SPELL24T=cumsum(.SD$IND_SPELL24T)),
+                     by='pid']
+panel1968_2015 <- panel1968_2015[,
+                     `:=`(OCC_SPELL=ifelse(OCC_SPELL %in% 0,NA,OCC_SPELL),
+                          IND_SPELL=ifelse(IND_SPELL %in% 0,NA,IND_SPELL),
+                          OCC_SPELL24T=ifelse(OCC_SPELL24T %in% 0,NA,OCC_SPELL24T),
+                          IND_SPELL24T=ifelse(IND_SPELL24T %in% 0,NA,IND_SPELL24T)),
+                     by='pid']
+
+# Before estimating the experience, we need to impute the most frequent occupation
+# and industry codes for their specific spells
+panel1968_2015 <- panel1968_2015[,
+                     MostFreqOCC:=names(sort(table(Occ3d)))[1],
+                     by=c('pid','OCC_SPELL')]
+panel1968_2015 <- panel1968_2015[,
+                     MostFreqOCC24T:=names(sort(table(Occ3d)))[1],
+                     by=c('pid','OCC_SPELL24T')]
+panel1968_2015 <- panel1968_2015[,
+                     MostFreqIND:=names(sort(table(Ind3d)))[1],
+                     by=c('pid','IND_SPELL')]
+panel1968_2015 <- panel1968_2015[,
+                     MostFreqIND24T:=names(sort(table(Ind3d)))[1],
+                     by=c('pid','IND_SPELL24T')]
+# Data wrangling in WORK EXPERIENCE
+panel1968_2015 <- panel1968_2015[,
+                     WorkExpSince18:=plyr::mapvalues(WorkExpSince18,
+                                                     from=c(0,99),
+                                                     to=c(NA,NA))]
+
+
+# En el A.2 del paper, para employer tenure, saco la siguiente conclusión:
+# 1) Para cada spell de empleador, asignar el valor mínimo cuando arranca
+panel1968_2015 <- panel1968_2015[!is.na(YearsWithEmployer_1968_2015),
+                     EXP_EMP:=ifelse(year == min(year),YearsWithEmployer_1968_2015,NA),
+                     by=c('pid','EMPLOYER_SPELL')]
+panel1968_2015 <- panel1968_2015[!is.na(YearsWithEmployer_1968_2015),
+                     EXP_EMP24T:=ifelse(year == min(year),YearsWithEmployer_1968_2015,NA),
+                     by=c('pid','EMPLOYER_SPELL24T')]
+# 2) Resetear la experiencia con el empleador en 1981 
+panel1968_2015 <- panel1968_2015[year %in% 1981,
+                     EXP_EMP:=ifelse(!is.na(YearsWithEmployer_1968_2015),YearsWithEmployer_1968_2015,EXP_EMP)]
+panel1968_2015 <- panel1968_2015[year %in% 1981,
+                     EXP_EMP24T:=ifelse(!is.na(YearsWithEmployer_1968_2015),YearsWithEmployer_1968_2015,EXP_EMP24T)]
+# 3) Para cada año entre 1969-1978 y 1982-97 agregarle 1 de experiencia o para 1999-2015
+#    agregarle 2 de experiencia, si trabajó 800 horas 
+panel1968_2015 <- panel1968_2015[,
+                     EXP_EMP:=ifelse(EmploymentStatus %in% 1 &
+                                       TodosEmpleos_YearHrs_Head_1968_2015 >= 800 &
+                                       year %in% c(1969:1978,1982:1993) & is.na(EXP_EMP),
+                                     year-shift(year),EXP_EMP),
+                     list(pid)]
+panel1968_2015 <- panel1968_2015[is.na(EXP_EMP),EXP_EMP:=0]
+
+panel1968_2015 <- panel1968_2015[,
+                     EXP_EMP24T:=ifelse(EmploymentStatus %in% 1 &
+                                          TodosEmpleos_YearHrs_Head_1968_2015 >= 800 &
+                                          year %in% c(1969:1978,1982:1993) & is.na(EXP_EMP24T),
+                                        year-shift(year),EXP_EMP24T),
+                     list(pid)]
+panel1968_2015 <- panel1968_2015[is.na(EXP_EMP24T),EXP_EMP24T:=0]
+
+panel1968_2015 <- panel1968_2015[,
+                     EXP_EMP:=cumsum(EXP_EMP),by=c('pid','EMPLOYER_SPELL')]
+panel1968_2015 <- panel1968_2015[,
+                     EXP_EMP24T:=cumsum(EXP_EMP24T),by=c('pid','EMPLOYER_SPELL24T')]
+
+
+#### Occupation and industry experience ####
+# Paso 1) Identificar cambios de occupación e industria basado en EMPLOYER_CHANGE
+# y EMPLOYER_CHANGE24T. Ya está hecho
+# Paso 2) Cualquier persona que entre desde 1968 en adelante le asignamos
+# la experiencia con el empleador. IMPORTANTE: también usan la experiencia
+# en la posición solo si no hay info con experiencia con el empleador
+panel1968_2015 <- panel1968_2015[,
+                     OCC_EXP:=ifelse(year == min(year),YearsWithEmployer_1968_2015,NA),
+                     by=c('pid')]
+panel1968_2015 <- panel1968_2015[,
+                     OCC_EXP24T:=ifelse(year == min(year),YearsWithEmployer_1968_2015,NA),
+                     by=c('pid')]
+panel1968_2015 <- panel1968_2015[,
+                     IND_EXP:=ifelse(year == min(year),YearsWithEmployer_1968_2015,NA),
+                     by=c('pid')]
+panel1968_2015 <- panel1968_2015[,
+                     IND_EXP24T:=ifelse(year == min(year),YearsWithEmployer_1968_2015,NA),
+                     by=c('pid')]
+# Paso 3) Se agrega uno a la experiencia en ocupacion/industria si en la próxima
+# observación no hay un cambio de ocupación/industria, se encuentra trabajando
+# en la próxima observación y trabajó 800 horas o más en el período
+panel1968_2015 <- panel1968_2015[,
+                     OCC_EXP:=ifelse(is.na(OCC_EXP) & !year %in% min(year) & 
+                                       TodosEmpleos_YearHrs_Head_1968_2015 > 800 & 
+                                       shift(EmploymentStatus,type = "lead") %in% 1 &
+                                       (OCC_SPELL - shift(OCC_SPELL,type="lead")) %in% 0,year-shift(year),
+                                     ifelse(year %in% min(year),OCC_EXP,0)),
+                     by=c('pid')]
+
+panel1968_2015 <- panel1968_2015[,
+                     OCC_EXP24T:=ifelse(is.na(OCC_EXP24T) & !year %in% min(year) & 
+                                          TodosEmpleos_YearHrs_Head_1968_2015 > 800 & 
+                                          shift(EmploymentStatus,type = "lead") %in% 1 &
+                                          (OCC_SPELL24T - shift(OCC_SPELL24T,type="lead")) %in% 0,year-shift(year),
+                                        ifelse(year %in% min(year),OCC_EXP24T,0)),
+                     by=c('pid')]
+
+panel1968_2015 <- panel1968_2015[,
+                     IND_EXP:=ifelse(is.na(IND_EXP) & !year %in% min(year) & 
+                                       TodosEmpleos_YearHrs_Head_1968_2015 > 800 & 
+                                       shift(EmploymentStatus,type = "lead") %in% 1 &
+                                       (IND_SPELL - shift(IND_SPELL,type="lead")) %in% 0,year-shift(year),
+                                     ifelse(year %in% min(year),IND_EXP,0)),
+                     by=c('pid')]
+
+panel1968_2015 <- panel1968_2015[,
+                     IND_EXP24T:=ifelse(is.na(IND_EXP24T) & !year %in% min(year) & 
+                                          TodosEmpleos_YearHrs_Head_1968_2015 > 800 & 
+                                          shift(EmploymentStatus,type = "lead") %in% 1 &
+                                          (IND_SPELL24T - shift(IND_SPELL24T,type="lead")) %in% 0,year-shift(year),
+                                        ifelse(year %in% min(year),IND_EXP24T,0)),
+                     by=c('pid')]
+
+# Paso 4: Esto no me queda muy claro, dice que si cambias de ocupación / industria la experiencia
+# vuelve a 6 meses. Yo lo hago acá, solo a fines de replicar, pero asume una tasa de depreciación
+# del 100% de lo que hiciste en el pasado... a tener en cuenta para ver si cambian los resultados
+panel1968_2015 <- panel1968_2015[OCC_SPELL>1,
+                     OCC_EXP:=ifelse(year == min(year),0.5,OCC_EXP),
+                     by=c('pid',"OCC_SPELL")]
+panel1968_2015 <- panel1968_2015[OCC_SPELL24T>1,
+                     OCC_EXP24T:=ifelse(year == min(year),0.5,OCC_EXP24T),
+                     by=c('pid',"OCC_SPELL24T")]
+panel1968_2015 <- panel1968_2015[IND_SPELL>1,
+                     IND_EXP:=ifelse(year == min(year),0.5,IND_EXP),
+                     by=c('pid',"IND_SPELL")]
+panel1968_2015 <- panel1968_2015[IND_SPELL24T>1,
+                     IND_EXP24T:=ifelse(year == min(year),0.5,IND_EXP24T),
+                     by=c('pid',"IND_SPELL24T")]
+
+# Paso 5: acumulamos la experiencia en industria/ocupacion
+
+panel1968_2015 <- panel1968_2015[,OCC_EXP:=cumsum(OCC_EXP), by=c('pid',"OCC_SPELL")]
+panel1968_2015 <- panel1968_2015[,OCC_EXP24T:=cumsum(OCC_EXP24T), by=c('pid',"OCC_SPELL24T")]
+panel1968_2015 <- panel1968_2015[,IND_EXP:=cumsum(IND_EXP), by=c('pid',"IND_SPELL")]
+panel1968_2015 <- panel1968_2015[,IND_EXP24T:=cumsum(IND_EXP24T), by=c('pid',"IND_SPELL24T")]
+
+
+#### Otras variables: experiencia laboral ####
+# El primer año que tenga experiencia laboral total (generalmente, 1974),
+# se lo asignamos
+panel1968_2015 <- panel1968_2015[!is.na(WorkExpSince18),
+                     `:=`(EXP_WORK=ifelse(year==min(year),WorkExpSince18,NA),
+                          YEAR_MIN_EXP_WORK=min(year)),
+                     by='pid']
+# Después, podemos agregar 1 si se cumplen los criterios de siempre
+panel1968_2015[year > 1973,
+         EXP_WORK:= ifelse(!is.na(EXP_WORK),EXP_WORK,
+                           ifelse(EmploymentStatus %in% 1 &
+                                    TodosEmpleos_YearHrs_Head_1968_2015 >= 800 &
+                                    year > YEAR_MIN_EXP_WORK, year-shift(year),0)),
+         by='pid']
+panel1968_2015[year > 1973,
+         EXP_WORK:=cumsum(EXP_WORK),
+         by='pid']
+
+# Controls that might be useful for the regression
+# Regional dummy
+panel1968_2015$Region_1968_2015 <- factor(panel1968_2015$Region_1968_2015)
+# OJ dummy: 1 if the worker is NOT working in the first year with a new employer
+panel1968_2015 <- panel1968_2015[, OJ:= ifelse(year == min(year), 0, 1),by=c('pid','EMPLOYER_SPELL')]
+panel1968_2015 <- panel1968_2015[, OJ24T:= ifelse(year == min(year), 0, 1),by=c('pid','EMPLOYER_SPELL24T')]
+
+# Acá habría que encontrar los clasificadores de indistrias y ocupaciones
+# para crear dos variables que tengan a un dígito la industria y ocupación
+# Convierto a factor la variable OneDigitOcc para la regresión
+# panel1968_2015$OneDigitOcc <- factor(panel1968_2015$Occ1d)
+# panel1968_2015$OneDigitInd <- factor(panel1968_2015$Ind1d)
+
+# Checking mincer style equations
+mincerTest <- lm(panel1968_2015[year %in% c(1981:1993) & w_real_alljobs_79>0],
+                 formula=log(w_real_alljobs_79) ~ Grades_Individual_1968_2015  + WorkExpSince18 + OCC_EXP24T  + IND_EXP24T + EXP_EMP24T + OJ24T + factor(year) + Region_1968_2015 )
+summary(mincerTest)
+
+### Otras variables ###
+panel1968_2015 <- panel1968_2015[,
+                     `:=`(EMP2_100 = EXP_EMP^2 * 100,
+                          OCC2_100 = OCC_EXP^2 * 100,
+                          OCC3_100 = OCC_EXP^3 * 100,
+                          IND2_100 = IND_EXP^2 * 100,
+                          IND3_100 = IND_EXP^3 * 100,
+                          WORK2    = WorkExpSince18^2,
+                          WORK3_100= WorkExpSince18^3 * 100)]
+
+panel1968_2015 <- panel1968_2015[,
+                     `:=`(EMP2_100_24T = EXP_EMP24T^2 * 100,
+                          OCC2_100_24T = OCC_EXP24T^2 * 100,
+                          OCC3_100_24T = OCC_EXP24T^3 * 100,
+                          IND2_100_24T = IND_EXP24T^2 * 100,
+                          IND3_100_24T = IND_EXP24T^3 * 100)]
+
+#### INSTRUMENTOS ####
+
+# Instruments
+panel1968_2015[,
+         `:=`(INSTR_EMP=EXP_EMP-mean(EXP_EMP),
+              INSTR_EMP2_100=((EXP_EMP^2)-(mean(EXP_EMP)^2))*100),
+         by=c('pid','EMPLOYER_SPELL')]
+
+panel1968_2015[,
+         `:=`(INSTR_EMP24T=EXP_EMP24T-mean(EXP_EMP24T),
+              INSTR_EMP2_100_24T=((EXP_EMP24T^2)-(mean(EXP_EMP24T)^2))*100),
+         by=c('pid','EMPLOYER_SPELL24T')]
+panel1968_2015[,
+         `:=`(INSTR_OCC=OCC_EXP-mean(OCC_EXP),
+              INSTR_OCC2_100=((OCC_EXP^2)-(mean(OCC_EXP)^2))*100,
+              INSTR_OCC3_100=((OCC_EXP^3)-(mean(OCC_EXP)^3))*100),
+         by=c('pid','OCC_SPELL')]
+panel1968_2015[,
+         `:=`(INSTR_OCC24T=OCC_EXP24T-mean(OCC_EXP24T),
+              INSTR_OCC2_100_24T=((OCC_EXP24T^2)-(mean(OCC_EXP24T)^2))*100,
+              INSTR_OCC3_100_24T=((OCC_EXP24T^3)-(mean(OCC_EXP24T)^3))*100),
+         by=c('pid','OCC_SPELL24T')]
+panel1968_2015[,
+         `:=`(INSTR_IND=IND_EXP-mean(IND_EXP),
+              INSTR_IND2_100=((IND_EXP^2)-(mean(IND_EXP)^2))*100,
+              INSTR_IND3_100=((IND_EXP^3)-(mean(IND_EXP)^3))*100),
+         by=c('pid','IND_SPELL')]
+panel1968_2015[,
+         `:=`(INSTR_IND24T=IND_EXP24T-mean(IND_EXP24T),
+              INSTR_IND2_100_24T=((IND_EXP24T^2)-(mean(IND_EXP24T)^2))*100,
+              INSTR_IND3_100_24T=((IND_EXP24T^3)-(mean(IND_EXP24T)^3))*100),
+         by=c('pid','IND_SPELL24T')]
+panel1968_2015[,
+         `:=`(INSTR_WORK=EXP_WORK-mean(EXP_WORK),
+              INSTR_WORK2=(EXP_WORK^2)-(mean(EXP_WORK)^2),
+              INSTR_WORK3_100=((EXP_WORK^3)-(mean(EXP_WORK)^3))*100),
+         by='pid']
+panel1968_2015[,
+         INSTR_OJ:=  OJ-mean(OJ),
+         by=c('pid','EMPLOYER_SPELL')]
+panel1968_2015[,
+         INSTR_OJ24T:=  OJ24T-mean(OJ24T),
+         by=c('pid','EMPLOYER_SPELL24T')]
+
+### Hacemos el crossover entre el sistema de tres digitos y los de dos y un digito, segun Appendix B del paper
+
+# Occ_codes <- fread("occ_codes.csv")
+# panel1968_2015 <- panel1968_2015[Occ_codes, on=.(Occ3d = OCC_3D)]
+# Ind_codes <- fread("ind_codes.csv")
+# panel1968_2015 <- panel1968_2015[Ind_codes, on=.(Ind3d = IND_3d)]
+
+# # Checking mincer style equations
+# mincerTest <- lm(data = panel1968_2015[year %in% c(1981:1993) & w_real_alljobs_79>0],
+#                  formula = log(w_real_alljobs_79) ~ Grades_Individual_1968_2015  + EXP_WORK +
+#                    OCC_EXP  +
+#                    IND_EXP +
+#                    EXP_EMP +
+#                    OJ +
+#                    factor(year) +
+#                    Region_1968_2015 +
+#                    Married_Pairs_Indicator_1968_2015)
+# summary(mincerTest)
+# library(nlme)
+# mincerTest <- gls(data = panel1968_2015[year %in% c(1981:1993) & w_real_alljobs_79>0],na.action = "na.omit",
+#                   model = log(w_real_alljobs_79) ~ Grades_Individual_1968_2015  + INSTR_WORK + INSTR_OCC  + INSTR_IND + INSTR_EMP + OJ + factor(year) + Region_1968_2015 + Married_Pairs_Indicator_1968_2015)
+# summary(mincerTest)
+# 
+# # Tres o mas observaciones 'confiebles'
+# panel1968_2015 <- panel1968_2015[, reliable := ifelse(EmploymentStatus %in% 1, 1, 0)]
+# panel1968_2015 <- panel1968_2015[, reliable := ifelse(reliable==1 & shift(reliable)==1 & shift(reliable, type = "lead"), 1, 0), by='pid']
+# panel1968_2015 <- panel1968_2015[, reliable := any(reliable %in% 1), by='pid']
+# # panel1968_2015 <- panel1968_2015[reliable %in% TRUE]
+# 
+# # Si entraron a partir del 80, tomamos a partir del segundo spell
+# panel1968_2015 <- panel1968_2015[,
+#                      first_spell_1981 := firstApp > 1980 & OCC_SPELL < 2 & IND_SPELL < 2]
+# 
+# 
+# mincerTest <- gls(data = panel1968_2015[year %in% c(1981:1993) & w_real_alljobs_79>0 & first_spell_1981 == FALSE],na.action = "na.omit",
+#                   model = log(w_real_alljobs_79) ~ Grades_Individual_1968_2015  + INSTR_WORK + INSTR_OCC  + INSTR_IND + INSTR_EMP + OJ + factor(year) + Region_1968_2015 + Married_Pairs_Indicator_1968_2015)
+# summary(mincerTest)
+
+
+### Table 1 - DESCRIPTIVE STATISTICS ###
+# Años de interes
+tabla_1 <- panel1968_2015
+
+# Tres o mas observaciones 'confiebles'
+tabla_1 <- tabla_1[, reliable := ifelse(EmploymentStatus == 1, 1, 0)]
+tabla_1 <- tabla_1[, reliable := ifelse(reliable==1 & shift(reliable)==1 & shift(reliable, type = "lead"), 1, 0), by='pid']
+tabla_1 <- tabla_1[, reliable := any(reliable %in% 1), by='pid']
+tabla_1 <- tabla_1[reliable %in% TRUE]
+
+# Si entraron a partir del 80, tomamos a partir del segundo spell
+tabla_1 <- tabla_1[, second_spell := firstApp > 1980 & OCC_SPELL < 2 & IND_SPELL < 2]
+# Esto por ahi es mejor hacerlo con 24T:
+## tabla_1 <- tabla_1[, second_spell := firstApp > 1980 & OCC_SPELL24T < 2 & IND_SPEL24TL < 2]
+tabla_1 <- tabla_1[second_spell == FALSE]
+
+# Acomodamos la dummy para trabajadores cubiertos por un sindicato
+tabla_1 <- tabla_1[, sindicato := ifelse(TrabajoCubiertoSindicato_1979_2015 == 1, 1, 0)]
+
+# Acomodamos la dummy de casados
+tabla_1 <- tabla_1[, casados := ifelse(Married_Pairs_Indicator_1968_2015 == 0, 0, 1)]
+
+# Nos quedamos solo con las variables que nos interesan para la Tabla
+tabla_1 <- tabla_1[, .(Years_Individual_1968_2015, 
+                       # education, 
+                       casados, sindicato, 
+                       WorkExpSince18, EXP_EMP, OCC_EXP, OCC_EXP24T, IND_EXP, IND_EXP24T)]
+
+# Armamos la Tabla
+library(stargazer)
+stargazer(tabla_1, title = 'DESCRIPTIVE STATISTICS', out = "./table_1_full_sample.tex",
+          min.max = FALSE, style = 'aer')
