@@ -704,3 +704,4 @@ tabla_1 <- tabla_1[, .(Years_Individual_1968_2015, Grades_Individual_1968_2015, 
 library(stargazer)
 stargazer(tabla_1, title = 'DESCRIPTIVE STATISTICS', out = "./table_1_full_sample.tex",
           min.max = FALSE, style = 'aer')
+

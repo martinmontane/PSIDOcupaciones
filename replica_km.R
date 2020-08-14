@@ -601,3 +601,4 @@ tabla_1 <- tabla_1[, .(Years_Individual_1968_2015, education, casados, sindicato
 library(stargazer)
 stargazer(tabla_1, title = 'DESCRIPTIVE STATISTICS', out = "./table_1_km.tex",
           min.max = FALSE, style = 'aer')
+
