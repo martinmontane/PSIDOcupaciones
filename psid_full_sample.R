@@ -2,10 +2,10 @@ source("GetPanelPSID.R")
 # In 2003 PSID tries to better capture the variables linked to each of the jobs that 
 # a worker holds. Here we collapse pre 2003 data with main job data from 2003 onwards
 
-panel1968_2015 <- as.data.table(panel1968_2015)[,`:=` (Occ3d=ifelse(year %in% c(2003:2017),PresentOrLastMain_3dOccupation_2003_15,Occ3d),
-                                                       Ind3d=ifelse(year %in% c(2003:2017),PresentOrLastMain_3dIndustry_2003_15,Ind3d))]
-panel1968_2015 <- panel1968_2015[,!colnames(panel1968_2015) %in% c('PresentOrLastMain_3dOccupation_2003_15','Occ3d',
-                                                                   'PresentOrLastMain_3dIndustry_2003_15','Ind3d',
+panel1968_2015 <- as.data.table(panel1968_2015)[,`:=` (Occ3d=ifelse(year %in% c(2003:2017),PresentOrLastMain_3dOccupation_2003_15,PresentMainJob_3dOcc_1968_2001),
+                                                       Ind3d=ifelse(year %in% c(2003:2017),PresentOrLastMain_3dIndustry_2003_15,PresentMainJob_3dInd_1968_2001))]
+panel1968_2015 <- panel1968_2015[,!colnames(panel1968_2015) %in% c('PresentOrLastMain_3dOccupation_2003_15',
+                                                                   'PresentOrLastMain_3dIndustry_2003_15',
                                                                    'PresentMain_3dIndustry_Head_1968_2001','PresentMain_3dIndustry_Spouse_1968_2001',
                                                                    'PresentMain_3dOccupation_Head_1968_2001','PresentMain_3dIndustry_Spouse_1968_2001'), with=FALSE]
 # Marital status and region variable data wrangling  
@@ -595,7 +595,7 @@ panel1968_2015[,
 # panel1968_2015 <- panel1968_2015[Occ_codes, on=.(Occ3d = OCC_3D)]
 # Ind_codes <- fread("ind_codes.csv")
 # panel1968_2015 <- panel1968_2015[Ind_codes, on=.(Ind3d = IND_3d)]
-
+# 
 # # Checking mincer style equations
 # mincerTest <- lm(data = panel1968_2015[year %in% c(1981:1993) & w_real_alljobs_79>0],
 #                  formula = log(w_real_alljobs_79) ~ Grades_Individual_1968_2015  + EXP_WORK +
