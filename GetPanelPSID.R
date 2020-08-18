@@ -282,6 +282,7 @@ panel1968_2015<- panel1968_2015 %>%
          Region_1968_2015=Region_1968_2015,
          YearsWithEmployer_1968_2015=YearsWithEmployer_Head_1968_2015,
          race_1968_2015=race_1968_2015,
+         MainJob_Government_2003_2015=ifelse(relation.head %in% c(20,22), PresentOrLastMain_Government_Spouse_2003_15,PresentOrLastMain_Government_Head_2003_15),
          WorkExpSince18 = ifelse(relation.head %in% c(2,20,22), WorkExpSince18_Spouse, WorkExpSince18_Head),
          WorkExpSince18FullTime = ifelse(relation.head %in% c(2,20,22), WorkExpSince18FullTime_Spouse, WorkExpSince18FullTime_Head)
   )
@@ -307,6 +308,12 @@ panel1968_2015<- panel1968_2015 %>%
 # Elimino todo lo que ya no sirve y limpio la memoria
 rm(list=ls()[!ls() %in% c("panel1968_2015","PSIDFullYears")])
 gc()
+
+# Elimino las variables que tienen nombre "head" o "spouse". Con excepción
+# de relation.head
+panel1968_2015 <- panel1968_2015[,
+                                 !grepl(x = colnames(panel1968_2015),pattern = "*Head*|*Spouse*"),
+                                 with=FALSE]
 
 # # Elimino a los que no se les pudo hacer los retrospective files.
 # # Esto lo identificamos en base a los que estaban trabajando pero NO

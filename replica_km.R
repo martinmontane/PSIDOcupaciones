@@ -43,10 +43,10 @@ panel_km <- panel_km[,w_real_alljobs_79:=HourlyEarnings_AllJobs_1968_2015*base79
 # a revisar al final si los números no dan
 # Agregue la ocupacion de army y cambie industria por ocupacion en army_farmer_worker
 panel_km <- panel_km[,
-                     `:=`(government_worker = any(MainJob_Government_Head_1975_2001 %in% 1),
-                          independent_worker= any(PresentMain_Modalidad_Head_1968_2001 %in% c(2,3)),
+                     `:=`(government_worker = any(MainJob_Government_1979_2001 %in% 1),
+                          independent_worker= any(PresentMainJob_Modalidad_1968_2001 %in% c(2,3)),
                           wage_less_79_usd_worker =  any(w_real_alljobs_79>0 & w_real_alljobs_79<1),
-                          army_farmer_worker=any(PresentMain_3dOccupation_Head_1968_2001 %in% c(580, 590, 800:824))),
+                          army_farmer_worker=any(PresentMainJob_3dOcc_1968_2001 %in% c(580, 590, 800:824))),
                      by=list(pid)]
 
 # Paso 5: eliminar a todas las personas que cumplen las siguientes condiciones
@@ -60,7 +60,7 @@ panel_km <- panel_km[!government_worker %in% TRUE &
                     !army_farmer_worker %in% TRUE]
 
 # Paso 6: identificamos las observaciones que trabajaron menos de 500 horas
-panel_km <- panel_km[,menos_500horas := ifelse(TodosEmpleos_YearHrs_Head_1968_2015<=500,TRUE,FALSE)]
+panel_km <- panel_km[,menos_500horas := ifelse(TodosEmpleos_YearHrs_1968_2015<=500,TRUE,FALSE)]
 
 # Paso 7: identificamos las observaciones que o no trabajaron o tuvieron ingreso cero
 panel_km <- panel_km[,sin_ingresos := ifelse(wage_less_79_usd_worker %in% 0,TRUE,FALSE)]
@@ -339,7 +339,7 @@ panel_km <- panel_km[year %in% 1981,
 # 3) Para cada año entre 1969-1978 y 1982-93 agregarle 1 de experiencia si trabajó 800 horas
 panel_km <- panel_km[,
                      EXP_EMP:=ifelse(EmploymentStatus %in% 1 &
-                                     TodosEmpleos_YearHrs_Head_1968_2015 >= 800 &
+                                       TodosEmpleos_YearHrs_1968_2015 >= 800 &
                                      year %in% c(1969:1978,1982:1993) & is.na(EXP_EMP),
                                      year-shift(year),EXP_EMP),
                      list(pid)]
@@ -347,7 +347,7 @@ panel_km <- panel_km[is.na(EXP_EMP),EXP_EMP:=0]
 
 panel_km <- panel_km[,
                      EXP_EMP24T:=ifelse(EmploymentStatus %in% 1 &
-                                       TodosEmpleos_YearHrs_Head_1968_2015 >= 800 &
+                                          TodosEmpleos_YearHrs_1968_2015 >= 800 &
                                        year %in% c(1969:1978,1982:1993) & is.na(EXP_EMP24T),
                                      year-shift(year),EXP_EMP24T),
                      list(pid)]
@@ -381,7 +381,7 @@ panel_km <- panel_km[,
 # en la próxima observación y trabajó 800 horas o más en el período
 panel_km <- panel_km[,
                      OCC_EXP:=ifelse(is.na(OCC_EXP) & !year %in% min(year) & 
-                                     TodosEmpleos_YearHrs_Head_1968_2015 > 800 & 
+                                       TodosEmpleos_YearHrs_1968_2015 > 800 & 
                                      shift(EmploymentStatus,type = "lead") %in% 1 &
                                      (OCC_SPELL - shift(OCC_SPELL,type="lead")) %in% 0,year-shift(year),
                                      ifelse(year %in% min(year),OCC_EXP,0)),
@@ -389,7 +389,7 @@ panel_km <- panel_km[,
 
 panel_km <- panel_km[,
                      OCC_EXP24T:=ifelse(is.na(OCC_EXP24T) & !year %in% min(year) & 
-                                       TodosEmpleos_YearHrs_Head_1968_2015 > 800 & 
+                                          TodosEmpleos_YearHrs_1968_2015 > 800 & 
                                        shift(EmploymentStatus,type = "lead") %in% 1 &
                                        (OCC_SPELL24T - shift(OCC_SPELL24T,type="lead")) %in% 0,year-shift(year),
                                      ifelse(year %in% min(year),OCC_EXP24T,0)),
@@ -397,7 +397,7 @@ panel_km <- panel_km[,
 
 panel_km <- panel_km[,
                      IND_EXP:=ifelse(is.na(IND_EXP) & !year %in% min(year) & 
-                                       TodosEmpleos_YearHrs_Head_1968_2015 > 800 & 
+                                       TodosEmpleos_YearHrs_1968_2015 > 800 & 
                                        shift(EmploymentStatus,type = "lead") %in% 1 &
                                        (IND_SPELL - shift(IND_SPELL,type="lead")) %in% 0,year-shift(year),
                                      ifelse(year %in% min(year),IND_EXP,0)),
@@ -405,7 +405,7 @@ panel_km <- panel_km[,
 
 panel_km <- panel_km[,
                      IND_EXP24T:=ifelse(is.na(IND_EXP24T) & !year %in% min(year) & 
-                                          TodosEmpleos_YearHrs_Head_1968_2015 > 800 & 
+                                          TodosEmpleos_YearHrs_1968_2015 > 800 & 
                                           shift(EmploymentStatus,type = "lead") %in% 1 &
                                           (IND_SPELL24T - shift(IND_SPELL24T,type="lead")) %in% 0,year-shift(year),
                                         ifelse(year %in% min(year),IND_EXP24T,0)),
@@ -445,7 +445,7 @@ panel_km <- panel_km[!is.na(WorkExpSince18),
 panel_km[year > 1973,
          EXP_WORK:= ifelse(!is.na(EXP_WORK),EXP_WORK,
                            ifelse(EmploymentStatus %in% 1 &
-                                  TodosEmpleos_YearHrs_Head_1968_2015 >= 800 &
+                                    TodosEmpleos_YearHrs_1968_2015 >= 800 &
                                    year > YEAR_MIN_EXP_WORK, year-shift(year),0)),
          by='pid']
 panel_km[year > 1973,
@@ -535,9 +535,9 @@ panel_km[,
 ### Hacemos el crossover entre el sistema de tres digitos y los de dos y un digito, segun Appendix B del paper
 
 Occ_codes <- fread("occ_codes.csv")
-panel_km <- panel_km[Occ_codes, on=.(PresentMain_3dOccupation_Head_1968_2001 = OCC_3D)]
+panel_km <- panel_km[Occ_codes, on=.(PresentMainJob_3dOcc_1968_2001 = OCC_3D)]
 Ind_codes <- fread("ind_codes.csv")
-panel_km <- panel_km[Ind_codes, on=.(PresentMain_3dIndustry_Head_1968_2001 = IND_3d)]
+panel_km <- panel_km[Ind_codes, on=.(PresentMainJob_3dInd_1968_2001 = IND_3d)]
 
 
 # Checking mincer style equations
